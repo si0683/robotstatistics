@@ -28,7 +28,7 @@
     return;
   }
 
-  var VERSION = "2.0.0";
+  var VERSION = "2.1.0";
   var LWC_URL = "https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js";
 
   // =====================================================================
