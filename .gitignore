@@ -1,8 +1,5 @@
-# секреты агента — никогда в репозиторий
-agent.json
-uploader.json
-history.json
-*.log
+# данные, которые присылает OsEngine в пример сайта
+examples/docker-site/data/
 
 # Obsidian
 .obsidian/workspace*.json
@@ -11,3 +8,4 @@ history.json
 # .NET
 bin/
 obj/
+*.tmp

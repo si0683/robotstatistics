@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+<channel>
+<title>Трендовый робот MOEX — сделки</title>
+<link>https://github.com/si0683/robotstatistics</link>
+<description>Закрытые сделки робота Трендовый робот MOEX (OsEngine)</description>
+<lastBuildDate>Sun, 08 Nov 2026 20:32:06 GMT</lastBuildDate>
+<item>
+<title>GAZP Short +1.92 % (+264)</title>
+<description>Вход 2026-07-26T17:00:00 по 137.41, выход 2026-07-28T03:05:00 по 134.77</description>
+<guid isPermaLink="false">moex-trend-1-355</guid>
+<pubDate>Mon, 27 Jul 2026 23:05:00 GMT</pubDate>
+</item>
+<item>
+<title>LKOH Short +0.58 % (+4171)</title>
+<description>Вход 2026-07-26T22:00:00 по 7225.29, выход 2026-07-27T11:46:00 по 7183.58</description>
+<guid isPermaLink="false">moex-trend-1-356</guid>
+<pubDate>Mon, 27 Jul 2026 07:46:00 GMT</pubDate>
+</item>
+<item>
+<title>SBER Long +0.89 % (+275)</title>
+<description>Вход 2026-07-25T14:00:00 по 307.90, выход 2026-07-26T08:36:00 по 310.65</description>
+<guid isPermaLink="false">moex-trend-1-354</guid>
+<pubDate>Sun, 26 Jul 2026 04:36:00 GMT</pubDate>
+</item>
+<item>
+<title>LKOH Long +0.99 % (+6589)</title>
+<description>Вход 2026-07-24T22:00:00 по 6658.66, выход 2026-07-25T11:07:00 по 6724.55</description>
+<guid isPermaLink="false">moex-trend-1-353</guid>
+<pubDate>Sat, 25 Jul 2026 07:07:00 GMT</pubDate>
+</item>
+<item>
+<title>SBER Long -0.46 % (-131)</title>
+<description>Вход 2026-07-23T02:00:00 по 283.90, выход 2026-07-24T10:47:00 по 282.59</description>
+<guid isPermaLink="false">moex-trend-1-352</guid>
+<pubDate>Fri, 24 Jul 2026 06:47:00 GMT</pubDate>
+</item>
+<item>
+<title>YDEX Short +1.12 % (+4731)</title>
+<description>Вход 2026-07-22T08:00:00 по 4229.64, выход 2026-07-23T07:08:00 по 4182.33</description>
+<guid isPermaLink="false">moex-trend-1-351</guid>
+<pubDate>Thu, 23 Jul 2026 03:08:00 GMT</pubDate>
+</item>
+<item>
+<title>LKOH Long +1.26 % (+9310)</title>
+<description>Вход 2026-07-20T10:00:00 по 7385.86, выход 2026-07-20T21:48:00 по 7478.96</description>
+<guid isPermaLink="false">moex-trend-1-350</guid>
+<pubDate>Mon, 20 Jul 2026 17:48:00 GMT</pubDate>
+</item>
+<item>
+<title>YDEX Long +1.13 % (+4183)</title>
+<description>Вход 2026-07-19T11:00:00 по 3699.59, выход 2026-07-19T14:31:00 по 3741.42</description>
+<guid isPermaLink="false">moex-trend-1-349</guid>
+<pubDate>Sun, 19 Jul 2026 10:31:00 GMT</pubDate>
+</item>
+<item>
+<title>YDEX Long +0.68 % (+2536)</title>
+<description>Вход 2026-07-18T13:00:00 по 3741.53, выход 2026-07-19T09:45:00 по 3766.89</description>
+<guid isPermaLink="false">moex-trend-1-348</guid>
+<pubDate>Sun, 19 Jul 2026 05:45:00 GMT</pubDate>
+</item>
+<item>
+<title>GAZP Long -0.1 % (-14)</title>
+<description>Вход 2026-07-17T00:00:00 по 136.32, выход 2026-07-18T08:33:00 по 136.18</description>
+<guid isPermaLink="false">moex-trend-1-347</guid>
+<pubDate>Sat, 18 Jul 2026 04:33:00 GMT</pubDate>
+</item>
+<item>
+<title>GAZP Short -1.32 % (-179)</title>
+<description>Вход 2026-07-16T07:00:00 по 135.97, выход 2026-07-17T16:52:00 по 137.76</description>
+<guid isPermaLink="false">moex-trend-1-346</guid>
+<pubDate>Fri, 17 Jul 2026 12:52:00 GMT</pubDate>
+</item>
+<item>
+<title>LKOH Long -0.98 % (-6254)</title>
+<description>Вход 2026-07-15T14:00:00 по 6365.84, выход 2026-07-15T21:15:00 по 6303.30</description>
+<guid isPermaLink="false">moex-trend-1-345</guid>
+<pubDate>Wed, 15 Jul 2026 17:15:00 GMT</pubDate>
+</item>
+<item>
+<title>GAZP Long +2.04 % (+264)</title>
+<description>Вход 2026-07-13T14:00:00 по 129.22, выход 2026-07-14T03:43:00 по 131.86</description>
+<guid isPermaLink="false">moex-trend-1-344</guid>
+<pubDate>Mon, 13 Jul 2026 23:43:00 GMT</pubDate>
+</item>
+<item>
+<title>LKOH Short +1.12 % (+8531)</title>
+<description>Вход 2026-07-12T05:00:00 по 7637.13, выход 2026-07-13T09:57:00 по 7551.82</description>
+<guid isPermaLink="false">moex-trend-1-343</guid>
+<pubDate>Mon, 13 Jul 2026 05:57:00 GMT</pubDate>
+</item>
+<item>
+<title>SBER Short +0.35 % (+101)</title>
+<description>Вход 2026-07-10T17:00:00 по 290.34, выход 2026-07-12T03:39:00 по 289.33</description>
+<guid isPermaLink="false">moex-trend-1-340</guid>
+<pubDate>Sat, 11 Jul 2026 23:39:00 GMT</pubDate>
+</item>
+<item>
+<title>LKOH Short -0.26 % (-1765)</title>
+<description>Вход 2026-07-11T19:00:00 по 6685.19, выход 2026-07-12T00:25:00 по 6702.84</description>
+<guid isPermaLink="false">moex-trend-1-342</guid>
+<pubDate>Sat, 11 Jul 2026 20:25:00 GMT</pubDate>
+</item>
+<item>
+<title>YDEX Short -0.83 % (-3605)</title>
+<description>Вход 2026-07-11T15:00:00 по 4334.07, выход 2026-07-11T17:05:00 по 4370.12</description>
+<guid isPermaLink="false">moex-trend-1-341</guid>
+<pubDate>Sat, 11 Jul 2026 13:05:00 GMT</pubDate>
+</item>
+<item>
+<title>GAZP Long -1.59 % (-188)</title>
+<description>Вход 2026-07-09T18:00:00 по 118.45, выход 2026-07-11T02:45:00 по 116.57</description>
+<guid isPermaLink="false">moex-trend-1-339</guid>
+<pubDate>Fri, 10 Jul 2026 22:45:00 GMT</pubDate>
+</item>
+<item>
+<title>SBER Long -1.98 % (-586)</title>
+<description>Вход 2026-07-08T16:00:00 по 296.08, выход 2026-07-10T01:01:00 по 290.22</description>
+<guid isPermaLink="false">moex-trend-1-338</guid>
+<pubDate>Thu, 09 Jul 2026 21:01:00 GMT</pubDate>
+</item>
+<item>
+<title>YDEX Short 0 % (-1)</title>
+<description>Вход 2026-07-07T04:00:00 по 4213.20, выход 2026-07-08T15:58:00 по 4213.21</description>
+<guid isPermaLink="false">moex-trend-1-337</guid>
+<pubDate>Wed, 08 Jul 2026 11:58:00 GMT</pubDate>
+</item>
+<item>
+<title>YDEX Long +2.06 % (+8949)</title>
+<description>Вход 2026-07-05T19:00:00 по 4343.38, выход 2026-07-06T19:19:00 по 4432.87</description>
+<guid isPermaLink="false">moex-trend-1-336</guid>
+<pubDate>Mon, 06 Jul 2026 15:19:00 GMT</pubDate>
+</item>
+<item>
+<title>YDEX Short -0.29 % (-1142)</title>
+<description>Вход 2026-07-05T02:00:00 по 3943.33, выход 2026-07-05T11:34:00 по 3954.75</description>
+<guid isPermaLink="false">moex-trend-1-335</guid>
+<pubDate>Sun, 05 Jul 2026 07:34:00 GMT</pubDate>
+</item>
+<item>
+<title>YDEX Short -0.2 % (-805)</title>
+<description>Вход 2026-07-03T21:00:00 по 3979.07, выход 2026-07-04T09:02:00 по 3987.12</description>
+<guid isPermaLink="false">moex-trend-1-334</guid>
+<pubDate>Sat, 04 Jul 2026 05:02:00 GMT</pubDate>
+</item>
+<item>
+<title>SBER Long -1.41 % (-389)</title>
+<description>Вход 2026-07-02T12:00:00 по 275.18, выход 2026-07-03T03:57:00 по 271.29</description>
+<guid isPermaLink="false">moex-trend-1-333</guid>
+<pubDate>Thu, 02 Jul 2026 23:57:00 GMT</pubDate>
+</item>
+<item>
+<title>SBER Short +1.23 % (+351)</title>
+<description>Вход 2026-06-30T11:00:00 по 285.72, выход 2026-07-01T05:35:00 по 282.21</description>
+<guid isPermaLink="false">moex-trend-1-332</guid>
+<pubDate>Wed, 01 Jul 2026 01:35:00 GMT</pubDate>
+</item>
+<item>
+<title>LKOH Long +2.68 % (+19163)</title>
+<description>Вход 2026-06-28T11:00:00 по 7163.71, выход 2026-06-29T08:38:00 по 7355.34</description>
+<guid isPermaLink="false">moex-trend-1-331</guid>
+<pubDate>Mon, 29 Jun 2026 04:38:00 GMT</pubDate>
+</item>
+<item>
+<title>SBER Long -4.4 % (-1256)</title>
+<description>Вход 2026-06-27T07:00:00 по 285.67, выход 2026-06-28T17:26:00 по 273.11</description>
+<guid isPermaLink="false">moex-trend-1-330</guid>
+<pubDate>Sun, 28 Jun 2026 13:26:00 GMT</pubDate>
+</item>
+<item>
+<title>YDEX Short +1.58 % (+6534)</title>
+<description>Вход 2026-06-26T17:00:00 по 4134.93, выход 2026-06-27T12:19:00 по 4069.59</description>
+<guid isPermaLink="false">moex-trend-1-329</guid>
+<pubDate>Sat, 27 Jun 2026 08:19:00 GMT</pubDate>
+</item>
+<item>
+<title>GAZP Short -0.96 % (-130)</title>
+<description>Вход 2026-06-24T23:00:00 по 135.82, выход 2026-06-26T06:17:00 по 137.12</description>
+<guid isPermaLink="false">moex-trend-1-327</guid>
+<pubDate>Fri, 26 Jun 2026 02:17:00 GMT</pubDate>
+</item>
+<item>
+<title>GAZP Short -2.26 % (-302)</title>
+<description>Вход 2026-06-24T04:00:00 по 133.54, выход 2026-06-25T18:16:00 по 136.56</description>
+<guid isPermaLink="false">moex-trend-1-326</guid>
+<pubDate>Thu, 25 Jun 2026 14:16:00 GMT</pubDate>
+</item>
+<item>
+<title>GAZP Long -0.15 % (-21)</title>
+<description>Вход 2026-06-25T04:00:00 по 142.87, выход 2026-06-25T11:41:00 по 142.66</description>
+<guid isPermaLink="false">moex-trend-1-328</guid>
+<pubDate>Thu, 25 Jun 2026 07:41:00 GMT</pubDate>
+</item>
+<item>
+<title>YDEX Short -2.24 % (-9827)</title>
+<description>Вход 2026-06-22T23:00:00 по 4381.17, выход 2026-06-23T12:55:00 по 4479.44</description>
+<guid isPermaLink="false">moex-trend-1-325</guid>
+<pubDate>Tue, 23 Jun 2026 08:55:00 GMT</pubDate>
+</item>
+<item>
+<title>YDEX Long +0.05 % (+183)</title>
+<description>Вход 2026-06-21T23:00:00 по 3897.80, выход 2026-06-23T12:17:00 по 3899.63</description>
+<guid isPermaLink="false">moex-trend-1-324</guid>
+<pubDate>Tue, 23 Jun 2026 08:17:00 GMT</pubDate>
+</item>
+<item>
+<title>SBER Long +0.56 % (+177)</title>
+<description>Вход 2026-06-21T15:00:00 по 318.55, выход 2026-06-22T17:43:00 по 320.32</description>
+<guid isPermaLink="false">moex-trend-1-323</guid>
+<pubDate>Mon, 22 Jun 2026 13:43:00 GMT</pubDate>
+</item>
+<item>
+<title>SBER Long -1.95 % (-628)</title>
+<description>Вход 2026-06-19T20:00:00 по 322.40, выход 2026-06-20T22:13:00 по 316.12</description>
+<guid isPermaLink="false">moex-trend-1-322</guid>
+<pubDate>Sat, 20 Jun 2026 18:13:00 GMT</pubDate>
+</item>
+<item>
+<title>GAZP Long +1.19 % (+149)</title>
+<description>Вход 2026-06-18T18:00:00 по 125.55, выход 2026-06-19T16:24:00 по 127.04</description>
+<guid isPermaLink="false">moex-trend-1-320</guid>
+<pubDate>Fri, 19 Jun 2026 12:24:00 GMT</pubDate>
+</item>
+<item>
+<title>LKOH Long +2.99 % (+22937)</title>
+<description>Вход 2026-06-19T10:00:00 по 7670.48, выход 2026-06-19T12:12:00 по 7899.85</description>
+<guid isPermaLink="false">moex-trend-1-321</guid>
+<pubDate>Fri, 19 Jun 2026 08:12:00 GMT</pubDate>
+</item>
+<item>
+<title>LKOH Long -0.97 % (-6984)</title>
+<description>Вход 2026-06-17T10:00:00 по 7235.47, выход 2026-06-18T09:23:00 по 7165.63</description>
+<guid isPermaLink="false">moex-trend-1-319</guid>
+<pubDate>Thu, 18 Jun 2026 05:23:00 GMT</pubDate>
+</item>
+<item>
+<title>SBER Long -3.39 % (-1092)</title>
+<description>Вход 2026-06-15T08:00:00 по 321.74, выход 2026-06-16T06:56:00 по 310.82</description>
+<guid isPermaLink="false">moex-trend-1-317</guid>
+<pubDate>Tue, 16 Jun 2026 02:56:00 GMT</pubDate>
+</item>
+<item>
+<title>GAZP Short -0.24 % (-32)</title>
+<description>Вход 2026-06-15T15:00:00 по 135.60, выход 2026-06-15T23:34:00 по 135.92</description>
+<guid isPermaLink="false">moex-trend-1-318</guid>
+<pubDate>Mon, 15 Jun 2026 19:34:00 GMT</pubDate>
+</item>
+<item>
+<title>SBER Short -1.7 % (-495)</title>
+<description>Вход 2026-06-13T20:00:00 по 290.79, выход 2026-06-14T17:08:00 по 295.74</description>
+<guid isPermaLink="false">moex-trend-1-316</guid>
+<pubDate>Sun, 14 Jun 2026 13:08:00 GMT</pubDate>
+</item>
+<item>
+<title>YDEX Long +1.7 % (+6541)</title>
+<description>Вход 2026-06-13T01:00:00 по 3857.47, выход 2026-06-13T23:29:00 по 3922.88</description>
+<guid isPermaLink="false">moex-trend-1-315</guid>
+<pubDate>Sat, 13 Jun 2026 19:29:00 GMT</pubDate>
+</item>
+<item>
+<title>YDEX Long -2.45 % (-9105)</title>
+<description>Вход 2026-06-12T09:00:00 по 3722.96, выход 2026-06-13T06:22:00 по 3631.91</description>
+<guid isPermaLink="false">moex-trend-1-314</guid>
+<pubDate>Sat, 13 Jun 2026 02:22:00 GMT</pubDate>
+</item>
+<item>
+<title>YDEX Long -0.78 % (-2925)</title>
+<description>Вход 2026-06-11T01:00:00 по 3770.31, выход 2026-06-12T06:25:00 по 3741.06</description>
+<guid isPermaLink="false">moex-trend-1-313</guid>
+<pubDate>Fri, 12 Jun 2026 02:25:00 GMT</pubDate>
+</item>
+<item>
+<title>LKOH Long +2.86 % (+21559)</title>
+<description>Вход 2026-06-10T12:00:00 по 7525.43, выход 2026-06-11T19:07:00 по 7741.02</description>
+<guid isPermaLink="false">moex-trend-1-312</guid>
+<pubDate>Thu, 11 Jun 2026 15:07:00 GMT</pubDate>
+</item>
+<item>
+<title>LKOH Long +0.32 % (+2045)</title>
+<description>Вход 2026-06-09T09:00:00 по 6388.37, выход 2026-06-09T10:31:00 по 6408.82</description>
+<guid isPermaLink="false">moex-trend-1-311</guid>
+<pubDate>Tue, 09 Jun 2026 06:31:00 GMT</pubDate>
+</item>
+<item>
+<title>SBER Long -0.27 % (-89)</title>
+<description>Вход 2026-06-07T10:00:00 по 329.94, выход 2026-06-08T14:54:00 по 329.05</description>
+<guid isPermaLink="false">moex-trend-1-310</guid>
+<pubDate>Mon, 08 Jun 2026 10:54:00 GMT</pubDate>
+</item>
+<item>
+<title>GAZP Short -1.63 % (-221)</title>
+<description>Вход 2026-06-06T21:00:00 по 135.90, выход 2026-06-08T12:34:00 по 138.11</description>
+<guid isPermaLink="false">moex-trend-1-309</guid>
+<pubDate>Mon, 08 Jun 2026 08:34:00 GMT</pubDate>
+</item>
+<item>
+<title>SBER Long -0.78 % (-233)</title>
+<description>Вход 2026-06-04T22:00:00 по 299.73, выход 2026-06-06T10:39:00 по 297.40</description>
+<guid isPermaLink="false">moex-trend-1-308</guid>
+<pubDate>Sat, 06 Jun 2026 06:39:00 GMT</pubDate>
+</item>
+<item>
+<title>YDEX Long -1.39 % (-5441)</title>
+<description>Вход 2026-06-03T17:00:00 по 3927.34, выход 2026-06-04T20:44:00 по 3872.93</description>
+<guid isPermaLink="false">moex-trend-1-307</guid>
+<pubDate>Thu, 04 Jun 2026 16:44:00 GMT</pubDate>
+</item>
+</channel>
+</rss>

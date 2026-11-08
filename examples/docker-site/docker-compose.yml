@@ -1,0 +1,26 @@
+# Мини-сайт RobotStatistics в Docker.
+#
+# Запуск (из этой папки):   docker compose up -d
+# Открыть:                  http://localhost:3000
+# Адрес для OsEngine:       http://localhost:3000/api/robot-stats/ingest
+# Остановить:               docker compose down
+
+services:
+  site:
+    image: node:22-alpine
+    working_dir: /app
+    command: ["node", "server.js"]
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: "3000"
+      DATA_DIR: /app/data
+      LIB_DIR: /app/lib
+      # Ключ. Если раскомментировать — тот же ключ впишите в OsEngine в «Ключ для webhook».
+      # INGEST_KEY: "придумайте-длинный-ключ"
+    volumes:
+      - ./server.js:/app/server.js:ro
+      - ./public:/app/public:ro
+      - ../../site/robot-stats.js:/app/lib/robot-stats.js:ro
+      - ./data:/app/data            # сюда складываются данные из OsEngine (видны и в Windows)
+    restart: unless-stopped

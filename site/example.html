@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Статистика робота</title>
+  <style>
+    body { margin: 0; padding: 24px 16px; background: #eef0f3; font-family: system-ui, sans-serif; }
+    main { max-width: 960px; margin: 0 auto; display: grid; gap: 24px; }
+    h1 { font-size: 20px; margin: 0; }
+    p { margin: 0; color: #555; }
+    @media (prefers-color-scheme: dark) { body { background: #0c0e11; } h1 { color: #eee; } p { color: #999; } }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Статистика робота — пример</h1>
+  <p>Ниже два варианта подключения. Данные — демонстрационные из папки <code>demo/</code>.</p>
+
+  <!-- Вариант 1: несколько роботов — выбор из списка (data-src на robots.json) -->
+  <div id="robot-stats"></div>
+  <script src="robot-stats.js" data-src="demo/robots.json" data-offline="0"></script>
+
+  <!-- Вариант 2: один робот, только карточки и график -->
+  <div id="robot-stats-2"></div>
+  <script src="robot-stats.js"
+          data-target="robot-stats-2"
+          data-src="demo/kripto-proboy/stats.json"
+          data-parts="status,cards,equity"
+          data-currency="USDT"
+          data-offline="0"></script>
+</main>
+</body>
+</html>

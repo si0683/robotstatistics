@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Мои роботы — статистика</title>
+  <style>
+    :root { --page: #f3f4f6; --ink: #111827; --soft: #6b7280; }
+    @media (prefers-color-scheme: dark) { :root { --page: #0b0d10; --ink: #e5e7eb; --soft: #9ca3af; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 1040px; margin: 0 auto; padding: 28px 16px 60px; display: grid; gap: 22px; }
+    h1 { font-size: 26px; margin: 0; }
+    .lead { color: var(--soft); margin: 4px 0 0; }
+    .tabs { display: flex; gap: 8px; }
+    .tabs button { font: inherit; border: 1px solid #d1d5db; background: transparent; color: inherit; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+    .tabs button.on { background: var(--ink); color: var(--page); border-color: var(--ink); }
+    .empty { border: 1px dashed #9ca3af; border-radius: 14px; padding: 22px; color: var(--soft); }
+    code { font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Статистика моих роботов</h1>
+    <p class="lead">Данные приходят из OsEngine (робот RobotStatistics) на этот сайт автоматически.</p>
+  </header>
+
+  <nav class="tabs">
+    <button data-src="/robot-stats/tester/runs.json" class="on">Прогоны тестера</button>
+    <button data-src="/robot-stats/robots.json">Терминал (реальная торговля)</button>
+  </nav>
+
+  <section id="area"></section>
+</main>
+
+<!-- Виджет. data-src не указан — источник выбирает код ниже (уровень 3) -->
+<script src="/lib/robot-stats.js"></script>
+<script>
+  // Пример «уровня 3»: сами решаем, что и где показать
+  const area = document.getElementById("area");
+  const buttons = document.querySelectorAll(".tabs button");
+
+  async function show(src) {
+    buttons.forEach(b => b.classList.toggle("on", b.dataset.src === src));
+    area.innerHTML = "";
+
+    const ok = await fetch(src + "?t=" + Date.now(), { cache: "no-store" }).then(r => r.ok).catch(() => false);
+    if (!ok) {
+      area.innerHTML = '<div class="empty">Данных пока нет. ' + (src.includes("tester")
+        ? "Добавьте в тестер OsEngine робота <b>RobotStatistics</b>, укажите адрес <code>" + location.origin + "/api/robot-stats/ingest</code> и запустите тест."
+        : "Добавьте в терминал OsEngine робота <b>RobotStatistics</b> и укажите адрес <code>" + location.origin + "/api/robot-stats/ingest</code>.") + "</div>";
+      return;
+    }
+
+    const box = document.createElement("div");
+    area.appendChild(box);
+    RobotStats.mount(box, "widget", { src, refresh: 15, offline: 0 });
+  }
+
+  buttons.forEach(b => b.addEventListener("click", () => show(b.dataset.src)));
+  show(buttons[0].dataset.src);
+</script>
+</body>
+</html>
