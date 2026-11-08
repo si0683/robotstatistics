@@ -197,49 +197,129 @@
   // Стили (внутри Shadow DOM; цвета можно переопределить переменными --rs-* на сайте)
   // =====================================================================
 
+  var CHEVRON = '<svg class="chev" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
   var CSS = [
     // contain:inline-size — ширину блока задаёт страница, а не содержимое: широкая таблица или график
-    // не распирают вёрстку сайта (таблицы прокручиваются внутри, график подстраивается)
+    // не распирают вёрстку сайта; вид таблиц переключается по ширине самого блока (container queries)
     ":host{all:initial;display:block;min-width:0;max-width:100%;contain:inline-size}",
     // число в тексте наследует шрифт и цвет страницы, свой цвет — только у плюса/минуса
     ":host([data-rs=value]){display:inline;contain:none;font:inherit;color:inherit}",
     ".rs.v{font:inherit;color:inherit}.rs.v.up{color:var(--up)}.rs.v.down{color:var(--down)}",
     ".rs{--bg:var(--rs-bg,#fff);--card:var(--rs-card,#f5f6f8);--line:var(--rs-line,#e3e6ea);--text:var(--rs-text,#1b1f24);",
     "--muted:var(--rs-muted,#6b7380);--up:var(--rs-up,#12805c);--down:var(--rs-down,#c43b3b);--accent:var(--rs-accent,#2f6fde);",
-    "font:14px/1.45 var(--rs-font,system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif);color:var(--text);min-width:0}",
+    "--shadow:0 12px 32px rgba(15,23,42,.14),0 2px 6px rgba(15,23,42,.08);",
+    "font:14px/1.45 var(--rs-font,system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif);color:var(--text);min-width:0;-webkit-text-size-adjust:100%}",
+    ".rs:not(.v){container-type:inline-size;container-name:rs}",
     ".rs.dark{--bg:var(--rs-dark-bg,#14171c);--card:var(--rs-dark-card,#1d2128);--line:var(--rs-dark-line,#2c323b);--text:var(--rs-dark-text,#e8ebef);",
-    "--muted:var(--rs-dark-muted,#98a1ad);--up:var(--rs-dark-up,#3cc58f);--down:var(--rs-dark-down,#ff6b6b);--accent:var(--rs-dark-accent,#6aa0ff)}",
-    ".rs.framed{background:var(--bg);border:1px solid var(--line);border-radius:var(--rs-radius,14px);padding:16px}",
+    "--muted:var(--rs-dark-muted,#98a1ad);--up:var(--rs-dark-up,#3cc58f);--down:var(--rs-dark-down,#ff6b6b);--accent:var(--rs-dark-accent,#6aa0ff);",
+    "--shadow:0 14px 36px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.35)}",
+    ".rs.framed{background:var(--bg);border:1px solid var(--line);border-radius:var(--rs-radius,14px);padding:18px}",
     ".rs *{box-sizing:border-box}",
-    ".head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:14px}",
-    ".name{font-size:18px;font-weight:650;margin:0}",
+    "button{font:inherit;color:inherit}",
+
+    // шапка
+    ".head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}",
+    ".title{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 220px}",
+    ".name{font-size:18px;font-weight:650;margin:0;line-height:1.25;overflow-wrap:anywhere}",
     ".status{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}",
-    ".dot{width:8px;height:8px;border-radius:50%;background:var(--up)}.dot.off{background:var(--down)}.dot.test{background:var(--accent)}",
-    ".pick{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}",
-    "select{font:inherit;font-size:13px;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:4px 8px;max-width:100%}",
-    ".cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px}",
-    ".card{background:var(--card);border-radius:10px;padding:10px 12px;min-width:0}",
+    ".dot{width:8px;height:8px;border-radius:50%;background:var(--up);flex:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--up) 22%,transparent)}",
+    ".dot.off{background:var(--down);box-shadow:0 0 0 3px color-mix(in srgb,var(--down) 22%,transparent)}",
+    ".dot.test{background:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}",
+    ".pick{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex:0 1 auto;min-width:0}",
+    ".pick .dd{min-width:180px;max-width:300px}",
+
+    // выпадающий список
+    ".dd{position:relative;min-width:0}",
+    ".dd-btn{display:flex;align-items:center;gap:8px;width:100%;min-height:38px;padding:6px 10px 6px 12px;background:var(--card);border:1px solid var(--line);",
+    "border-radius:10px;cursor:pointer;text-align:left;transition:border-color .15s,background .15s}",
+    ".dd-btn:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}",
+    ".dd.open .dd-btn{border-color:var(--accent)}",
+    ".dd-btn:focus-visible,.dd-opt:focus-visible,.seg button:focus-visible,.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}",
+    ".dd-btn .lbl{font-size:13px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}",
+    ".dd-btn .hint{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}",
+    ".chev{flex:none;color:var(--muted);transition:transform .15s}",
+    ".dd.open .chev{transform:rotate(180deg)}",
+    ".dd-list{position:absolute;right:0;top:calc(100% + 6px);z-index:30;margin:0;padding:4px;list-style:none;background:var(--bg);",
+    "border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);min-width:100%;width:max-content;max-width:min(380px,100cqw);",
+    "max-height:320px;overflow-y:auto;overscroll-behavior:contain}",
+    ".dd-list[hidden]{display:none}",
+    ".dd-opt{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 16px;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer;outline:none}",
+    ".dd-opt:hover,.dd-opt.act{background:var(--card)}",
+    ".dd-opt[aria-selected=true] .lbl{color:var(--accent)}",
+    ".dd-opt .lbl{font-size:13px;font-weight:550;overflow-wrap:anywhere}",
+    ".dd-opt .sub{grid-column:1;font-size:11.5px;color:var(--muted)}",
+    ".dd-opt .hint{grid-column:2;grid-row:1/span 2;font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}",
+
+    // карточки
+    ".cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px}",
+    ".card{background:var(--card);border-radius:12px;padding:10px 12px;min-width:0}",
     ".card .l{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
-    ".card .v{font-size:19px;font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap}",
+    ".card .v{font-size:20px;font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}",
     ".up{color:var(--up)}.down{color:var(--down)}",
-    ".sec{margin-top:18px}.sec:first-child{margin-top:0}",
-    ".sec h3{font-size:14px;font-weight:650;margin:0 0 8px;display:flex;align-items:center;gap:8px}",
-    ".seg{margin-left:auto;display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}",
-    ".seg button{font:inherit;font-size:12px;background:none;border:0;color:var(--muted);padding:3px 10px;cursor:pointer}",
-    ".seg button.on{background:var(--card);color:var(--text)}",
+
+    // секции и заголовки
+    ".sec{margin-top:22px}.sec:first-child{margin-top:0}.sec:empty{display:none}",
+    "h3{font-size:14px;font-weight:650;margin:0 0 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;line-height:1.3}",
+    ".seg{margin-left:auto;display:inline-flex;padding:2px;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:9px}",
+    ".seg button{font-size:12px;font-weight:600;background:none;border:0;color:var(--muted);padding:3px 11px;border-radius:7px;cursor:pointer;min-width:34px}",
+    ".seg button.on{background:var(--bg);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}",
+
+    // график
     ".chart{position:relative;width:100%;min-width:0;overflow:hidden;contain:inline-size}",
-    ".legend{position:absolute;left:8px;top:6px;z-index:3;font-size:12px;color:var(--text);background:color-mix(in srgb,var(--bg) 85%,transparent);",
-    "border-radius:6px;padding:2px 6px;pointer-events:none;font-variant-numeric:tabular-nums;max-width:calc(100% - 16px)}",
-    "svg{display:block;width:100%;height:auto}",
-    ".tw{overflow-x:auto;-webkit-overflow-scrolling:touch}",
+    ".legend{position:absolute;left:8px;top:6px;z-index:3;font-size:12px;line-height:1.35;color:var(--text);background:color-mix(in srgb,var(--bg) 88%,transparent);",
+    "border-radius:6px;padding:2px 6px;pointer-events:none;font-variant-numeric:tabular-nums;max-width:calc(100% - 96px)}",
+    ".chart svg{display:block;width:100%;height:auto}",
+    ".chev{display:block;width:14px;height:14px}",
+
+    // таблицы
+    // страховка: если что-то всё же не влезет — прокрутка внутри блока, а не всей страницы сайта
+    ".tw{min-width:0;max-width:100%;overflow-x:auto}",
     "table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:13px}",
-    "th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}",
-    "th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-weight:500;font-size:12px}",
-    ".more{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}",
-    ".btn{font:inherit;font-size:13px;color:var(--accent);background:none;border:1px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer;text-decoration:none}",
+    "th,td{padding:8px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}",
+    "th:first-child,td:first-child{text-align:left;padding-left:0}th:last-child,td:last-child{padding-right:0}",
+    "th{color:var(--muted);font-weight:500;font-size:12px}",
+    "tbody tr:last-child td{border-bottom:0}",
+    ".stats td:first-child{white-space:normal;color:var(--muted);hyphens:auto;-webkit-hyphens:auto}",
+    ".c-mob{display:none}.c-mob span{white-space:nowrap}",
+    ".sec-name{font-weight:600}",
+    ".side{display:inline-block;margin-left:6px;padding:0 6px;border-radius:5px;font-size:11px;font-weight:600;line-height:18px;vertical-align:1px}",
+    ".side.long{color:var(--up);background:color-mix(in srgb,var(--up) 14%,transparent)}",
+    ".side.short{color:var(--down);background:color-mix(in srgb,var(--down) 14%,transparent)}",
+
+    ".more{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}",
+    ".btn{font-size:13px;color:var(--accent);background:none;border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;text-decoration:none;line-height:1.3}",
     ".btn:hover{border-color:var(--accent)}",
     ".msg{color:var(--muted);padding:10px 0}",
-    ".foot{margin-top:14px;font-size:11px;color:var(--muted)}.foot a{color:inherit}"
+    ".foot{margin-top:16px;font-size:11px;color:var(--muted)}.foot a{color:inherit}",
+
+    // ---------- узкий блок: сделки становятся карточками ----------
+    "@container rs (max-width: 720px){",
+    ".deals thead,.open thead{display:none}",
+    ".deals tr,.open tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:3px 12px;padding:10px 0;border-bottom:1px solid var(--line)}",
+    ".deals tbody tr:last-child,.open tbody tr:last-child{border-bottom:0}",
+    ".deals td,.open td{border:0;padding:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+    ".deals tr,.open tr{grid-template-columns:minmax(0,1fr) auto}",
+    ".c-tin,.c-tout,.c-pin,.c-pout{display:none!important}",
+    ".c-sec{grid-column:1;grid-row:1}",
+    ".c-pct{grid-column:2;grid-row:1;text-align:right!important;font-weight:650}",
+    ".c-mob{display:flex!important;flex-direction:column;gap:1px;grid-column:1;grid-row:2;font-size:12px;color:var(--muted);white-space:normal!important}",
+    ".c-abs{grid-column:2;grid-row:2;text-align:right!important;font-size:12px;align-self:start}",
+    "}",
+    "@container rs (max-width: 520px){",
+    ".rs.framed{padding:14px}",
+    ".pick{flex:1 1 100%;justify-content:stretch}",
+    ".pick .dd{flex:1 1 150px;min-width:0;max-width:none}",
+    ".dd-list{left:0;right:auto;width:100%;min-width:0;max-width:none}",
+    ".name{font-size:17px}",
+    ".cards{grid-template-columns:repeat(2,minmax(0,1fr))}",
+    ".card .v{font-size:18px}",
+    "table{font-size:12.5px}",
+    ".stats{table-layout:fixed}.stats th:first-child{width:38%}",
+    ".stats th,.stats td{padding:7px 3px;white-space:normal;overflow-wrap:break-word;line-height:1.3}",
+    ".legend{position:static;display:block;max-width:none;background:none;padding:0 0 6px;font-size:11.5px}",
+    ".more .btn{flex:1 1 auto;text-align:center}",
+    "}"
   ].join("");
 
   // =====================================================================
@@ -375,9 +455,28 @@
     return { unit: unit, hasAbs: !!hasAbs, hasPct: !!hasPct, suffix: unit === "percent" ? " %" : " " + (this.opts.currency || "₽") };
   };
 
+  var MONTHS = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+
+  // Подписи оси времени: год / месяц / «16 апр»; время суток не показываем — точки графика это сделки, а не свечи
+  function tickMark(t, type) {
+    var d = new Date(t * 1000);
+    if (type === 0) return String(d.getUTCFullYear());
+    if (type === 1) return MONTHS[d.getUTCMonth()];
+    return d.getUTCDate() + " " + MONTHS[d.getUTCMonth()];
+  }
+
+  // На узком экране график ниже, чтобы не занимать весь телефон
+  EquityChart.prototype.fitHeight = function () {
+    var h = parseInt(this.opts.height || 320, 10);
+    var w = this.el.clientWidth || 0;
+    if (w && w < 420) return Math.max(220, Math.round(h * 0.7));
+    if (w && w < 640) return Math.max(240, Math.round(h * 0.85));
+    return h;
+  };
+
   EquityChart.prototype.drawLwc = function (LWC) {
     var self = this, d = self.data || {}, u = self.unitInfo(), c = self.colors();
-    var height = parseInt(self.opts.height || 320, 10);
+    var height = self.fitHeight();
     var showDd = self.opts.drawdown !== false && (d.drawdown || []).length > 0;
 
     if (self.mode !== "lwc") {
@@ -390,13 +489,21 @@
         layout: { background: { type: "solid", color: "transparent" }, textColor: c.text, fontSize: 11, fontFamily: "inherit", attributionLogo: true },
         grid: { vertLines: { visible: false }, horzLines: { color: hexAlpha(c.line, 0.6) || c.line } },
         rightPriceScale: { borderVisible: false },
-        timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, fixLeftEdge: true, fixRightEdge: true },
+        timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, fixLeftEdge: true, fixRightEdge: true, tickMarkFormatter: tickMark },
         crosshair: { horzLine: { labelBackgroundColor: c.fg }, vertLine: { labelBackgroundColor: c.fg } },
         localization: { locale: "ru-RU", timeFormatter: function (t) { return fmtTs(t); } },
+        // колесо мыши прокручивает страницу, а не масштабирует график; масштаб — щипком или перетаскиванием оси
         handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
-        handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true }
+        handleScale: { mouseWheel: false, pinch: true, axisPressedMouseMove: true, axisDoubleClickReset: true }
       });
       self.host.style.height = height + "px";
+      if (window.ResizeObserver) {
+        self.ro = new ResizeObserver(function () {
+          var h = self.fitHeight();
+          if (self.host && self.host.style.height !== h + "px") self.host.style.height = h + "px";
+        });
+        self.ro.observe(self.el);
+      }
       self.eq = self.chart.addSeries(LWC.BaselineSeries, {
         baseValue: { type: "price", price: 0 }, lineWidth: 2, priceLineVisible: false, lastValueVisible: true
       });
@@ -475,6 +582,7 @@
 
   EquityChart.prototype.drawSvg = function () {
     var d = this.data || {}, u = this.unitInfo();
+    if (this.ro) { this.ro.disconnect(); this.ro = null; }
     if (this.chart) { this.chart.remove(); this.chart = null; }
     this.mode = "svg";
     var values = series(d.equity, u.unit).map(function (p) { return p.value; });
@@ -483,6 +591,7 @@
   };
 
   EquityChart.prototype.destroy = function () {
+    if (this.ro) { this.ro.disconnect(); this.ro = null; }
     if (this.chart) this.chart.remove();
     this.chart = null;
     this.el.innerHTML = "";
@@ -551,6 +660,7 @@
     style.textContent = CSS;
     this.box = document.createElement(type === "value" ? "span" : "div");
     this.box.className = "rs" + (type === "widget" && opts.frame !== "off" ? " framed" : "");
+    this.box.setAttribute("lang", "ru"); // переносы слов по правилам русского языка
     this.root.appendChild(style);
     this.root.appendChild(this.box);
     this.applyTheme();
@@ -594,6 +704,7 @@
     for (var k in patch) this.opts[k] = patch[k];
     this.data = null;
     this.allDeals = null;
+    this.dealsShown = 0;
     this.markerDeals = null;
     this.markerLoading = false;
     if (this.chart) { this.chart.destroy(); this.chart = null; }
@@ -614,7 +725,7 @@
 
     switch (this.type) {
       case "value": return this.renderValue();
-      case "status": this.box.innerHTML = this.htmlHead(); return this.bindHead();
+      case "status": if (this.box.querySelector(".dd.open")) return; this.box.innerHTML = this.htmlHead(); return this.bindHead();
       case "cards": this.box.innerHTML = this.htmlCards(); return;
       case "stats": this.box.innerHTML = this.htmlStats(); return;
       case "open": this.box.innerHTML = this.htmlOpen(true); return;
@@ -641,7 +752,7 @@
     }
 
     var q = this.box.querySelector.bind(this.box);
-    if (has("status")) { q(".s-head").innerHTML = this.htmlHead(); this.bindHead(); }
+    if (has("status") && !q(".s-head .dd.open")) { q(".s-head").innerHTML = this.htmlHead(); this.bindHead(); }
     if (has("cards")) q(".s-cards").innerHTML = this.htmlCards();
     if (has("equity")) this.renderEquity(q(".s-eq"), true);
     if (has("stats")) q(".s-stats").innerHTML = '<h3>Статистика</h3>' + this.htmlStats();
@@ -662,30 +773,123 @@
       ? "тестер" + (d.tester && d.tester.from ? " · " + time(d.tester.from).slice(0, 8) + " — " + time(d.tester.to).slice(0, 8) : "")
       : offline ? "не на связи с " + time(d.generated_at) : "робот в работе";
 
-    var html = '<div class="head"><h2 class="name">' + esc(d.name || d.slug) + "</h2>" +
-      '<span class="status"><span class="dot' + (tester ? " test" : offline ? " off" : "") + '"></span>' + statusText + "</span>";
+    var html = '<div class="head"><div class="title"><h2 class="name">' + esc(d.name || d.slug) + "</h2>" +
+      '<span class="status"><span class="dot' + (tester ? " test" : offline ? " off" : "") + '"></span>' + statusText + "</span></div>";
 
     var pick = "";
     if (res.runs && res.runs.length > 1) {
-      pick += '<select data-act="run" aria-label="Прогон тестера">' + res.runs.map(function (r) {
-        return '<option value="' + esc(r.id) + '"' + (r.id === res.run ? " selected" : "") + ">" + esc(r.title || r.id) + "</option>";
-      }).join("") + "</select>";
+      pick += dropdownHtml("run", "Прогон тестера", res.run, res.runs.map(function (r) {
+        var parts = String(r.title || r.id).split(" · ");
+        var item = (r.summary || []).filter(function (x) { return x.slug === res.robot; })[0] || (r.summary || [])[0];
+        var pct = item ? Number(item.net_profit_percent) : null;
+        return { value: r.id, label: parts[0], sub: parts[1] ? "период " + parts[1] : "", hint: isNum(pct) && pct ? signed(pct, 2, " %") : "", hintCls: cls(pct) };
+      }));
     }
     if (res.robots && res.robots.length > 1) {
-      pick += '<select data-act="robot" aria-label="Робот">' + res.robots.map(function (r) {
-        return '<option value="' + esc(r.slug) + '"' + (r.slug === res.robot ? " selected" : "") + ">" + esc(r.name) + "</option>";
-      }).join("") + "</select>";
+      pick += dropdownHtml("robot", "Робот", res.robot, res.robots.map(function (r) {
+        var pct = Number(r.net_profit_percent);
+        return { value: r.slug, label: r.name, sub: num(r.deals_count, 0) + " сделок" + (r.open_count ? " · открыто " + r.open_count : ""),
+          hint: isNum(pct) && pct ? signed(pct, 2, " %") : "", hintCls: cls(pct) };
+      }));
     }
-    return html + (pick ? '<span class="pick">' + pick + "</span>" : "") + "</div>";
+    return html + (pick ? '<div class="pick">' + pick + "</div>" : "") + "</div>";
   };
 
   Block.prototype.bindHead = function () {
     var self = this;
-    var r = this.box.querySelector('[data-act="robot"]');
-    if (r) r.onchange = function () { self.switchTo({ robot: r.value }); };
-    var run = this.box.querySelector('[data-act="run"]');
-    if (run) run.onchange = function () { self.switchTo({ run: run.value, robot: null }); };
+    bindDropdowns(this.box, function (name, value) {
+      if (name === "robot") self.switchTo({ robot: value });
+      if (name === "run") self.switchTo({ run: value, robot: (self.res && self.res.robot) || null });
+    });
   };
+
+  // ---------- Выпадающий список (свой, чтобы раскрытый список выглядел одинаково везде) ----------
+
+  function dropdownHtml(name, aria, value, items) {
+    var current = items.filter(function (i) { return i.value === value; })[0] || items[0];
+    var html = '<div class="dd" data-dd="' + esc(name) + '">' +
+      '<button type="button" class="dd-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="' + esc(aria) + '">' +
+      '<span class="lbl">' + esc(current.label) + "</span>" +
+      (current.hint ? '<span class="hint ' + current.hintCls + '">' + esc(current.hint) + "</span>" : "") + CHEVRON + "</button>" +
+      '<ul class="dd-list" role="listbox" aria-label="' + esc(aria) + '" hidden>';
+    items.forEach(function (i) {
+      html += '<li class="dd-opt" role="option" tabindex="-1" data-value="' + esc(i.value) + '" aria-selected="' + (i === current) + '">' +
+        '<span class="lbl">' + esc(i.label) + "</span>" +
+        (i.hint ? '<span class="hint ' + i.hintCls + '">' + esc(i.hint) + "</span>" : "") +
+        (i.sub ? '<span class="sub">' + esc(i.sub) + "</span>" : "") + "</li>";
+    });
+    return html + "</ul></div>";
+  }
+
+  function bindDropdowns(root, onChange) {
+    Array.prototype.forEach.call(root.querySelectorAll(".dd"), function (dd) {
+      var btn = dd.querySelector(".dd-btn");
+      var list = dd.querySelector(".dd-list");
+      var opts = Array.prototype.slice.call(list.querySelectorAll(".dd-opt"));
+      var active = -1;
+
+      function setActive(i) {
+        if (!opts.length) return;
+        active = (i + opts.length) % opts.length;
+        opts.forEach(function (o, k) { o.classList.toggle("act", k === active); });
+        opts[active].focus({ preventScroll: true });
+        opts[active].scrollIntoView({ block: "nearest" });
+      }
+      function open() {
+        closeAll(root, dd);
+        list.hidden = false;
+        dd.classList.add("open");
+        btn.setAttribute("aria-expanded", "true");
+        var sel = opts.findIndex(function (o) { return o.getAttribute("aria-selected") === "true"; });
+        setActive(sel < 0 ? 0 : sel);
+      }
+      function close(focusBtn) {
+        list.hidden = true;
+        dd.classList.remove("open");
+        btn.setAttribute("aria-expanded", "false");
+        if (focusBtn) btn.focus();
+      }
+      function choose(o) {
+        close(true);
+        if (o.getAttribute("aria-selected") === "true") return;
+        onChange(dd.getAttribute("data-dd"), o.getAttribute("data-value"));
+      }
+      dd._close = close;
+
+      btn.addEventListener("click", function () { list.hidden ? open() : close(); });
+      btn.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); open(); }
+      });
+      opts.forEach(function (o, k) {
+        o.addEventListener("click", function () { choose(o); });
+        o.addEventListener("mousemove", function () { if (active !== k) { active = k; opts.forEach(function (x, j) { x.classList.toggle("act", j === k); }); } });
+      });
+      list.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowDown") { e.preventDefault(); setActive(active + 1); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); setActive(active - 1); }
+        else if (e.key === "Home") { e.preventDefault(); setActive(0); }
+        else if (e.key === "End") { e.preventDefault(); setActive(opts.length - 1); }
+        else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (opts[active]) choose(opts[active]); }
+        else if (e.key === "Escape" || e.key === "Tab") { close(e.key === "Escape"); }
+      });
+    });
+
+    if (!root._ddOutside) {
+      root._ddOutside = true;
+      document.addEventListener("click", function (e) {
+        var path = e.composedPath ? e.composedPath() : [];
+        Array.prototype.forEach.call(root.querySelectorAll(".dd.open"), function (dd) {
+          if (path.indexOf(dd) < 0 && dd._close) dd._close(false);
+        });
+      });
+    }
+  }
+
+  function closeAll(root, except) {
+    Array.prototype.forEach.call(root.querySelectorAll(".dd.open"), function (dd) {
+      if (dd !== except && dd._close) dd._close(false);
+    });
+  }
 
   Block.prototype.htmlCards = function () {
     var d = this.data, o = this.opts, money = d.money_shown !== false;
@@ -760,7 +964,7 @@
   Block.prototype.htmlStats = function () {
     var s = this.data.statistics, money = this.data.money_shown !== false;
     if (!s) return '<div class="msg">Нет статистики</div>';
-    var html = '<div class="tw"><table><thead><tr><th></th><th>Все</th><th>Long</th><th>Short</th></tr></thead><tbody>';
+    var html = '<div class="tw"><table class="stats"><thead><tr><th></th><th>Все</th><th>Long</th><th>Short</th></tr></thead><tbody>';
     STAT_ROWS.forEach(function (row) {
       if (row[3] && !money) return;
       if (!s.all || s.all[row[0]] == null) return;
@@ -777,35 +981,49 @@
   Block.prototype.htmlOpen = function (standalone) {
     var list = this.data.open_positions;
     if (!list || !list.length) return standalone ? '<div class="msg">Открытых позиций нет</div>' : "";
-    var html = "<h3>Открытые позиции</h3><div class=\"tw\"><table><thead><tr><th>Бумага</th><th>Сторона</th><th>Вход</th><th>Цена</th><th>Результат</th></tr></thead><tbody>";
+    var html = "<h3>Открытые позиции</h3><div class=\"tw\"><table class=\"open\"><thead><tr><th>Бумага</th><th>Вход</th><th>Цена входа</th><th>Результат</th></tr></thead><tbody>";
     list.forEach(function (p) {
-      html += "<tr><td>" + esc(p.security) + "</td><td>" + esc(p.direction) + "</td><td>" + time(p.open_time) +
-        "</td><td>" + num(p.entry_price, 6) + '</td><td class="' + cls(p.profit_percent) + '">' + signed(p.profit_percent, 2, " %") + "</td></tr>";
+      html += "<tr>" + secCell(p) + '<td class="c-tin">' + time(p.open_time) + '</td><td class="c-pin">' + num(p.entry_price, 6) +
+        '</td><td class="c-pct ' + cls(p.profit_percent) + '">' + signed(p.profit_percent, 2, " %") + "</td>" +
+        '<td class="c-mob"><span>вход ' + time(p.open_time) + " · по " + num(p.entry_price, 6) + "</span></td></tr>";
     });
     return html + "</tbody></table></div>";
   };
+
+  function secCell(p) {
+    var long = p.direction === "Long";
+    return '<td class="c-sec"><span class="sec-name">' + esc(p.security) + '</span><span class="side ' + (long ? "long" : "short") + '">' +
+      (long ? "Long" : "Short") + "</span></td>";
+  }
+
+  var DEALS_PAGE = 50;
 
   Block.prototype.htmlDeals = function () {
     var d = this.data, o = this.opts, money = d.money_shown !== false;
     var full = !!this.allDeals;
     var list = (this.allDeals || d.last_deals || []).slice().sort(function (a, b) { return String(b.close_time).localeCompare(String(a.close_time)); });
-    var limit = parseInt(o.limit || 0, 10);
-    var shown = !full && limit > 0 ? list.slice(0, limit) : list;
-    var html = "<h3>" + (full ? "Все сделки (" + list.length + ")" : "Последние сделки") + "</h3>";
+    var limit = parseInt(o.limit || 10, 10);
+    if (full && !this.dealsShown) this.dealsShown = DEALS_PAGE;
+    var shown = full ? list.slice(0, this.dealsShown) : (limit > 0 ? list.slice(0, limit) : list);
+    var html = "<h3>" + (full ? "Все сделки · " + num(list.length, 0) : "Последние сделки") + "</h3>";
     if (!shown.length) return html + '<div class="msg">Закрытых сделок пока нет</div>';
 
-    html += '<div class="tw"><table><thead><tr><th>Бумага</th><th>Сторона</th><th>Вход</th><th>Выход</th><th>Цена входа</th><th>Цена выхода</th><th>%</th>' +
+    html += '<div class="tw"><table class="deals"><thead><tr><th>Бумага</th><th>Вход</th><th>Выход</th><th>Цена входа</th><th>Цена выхода</th><th>Результат</th>' +
       (money ? "<th>" + esc(o.currency) + "</th>" : "") + "</tr></thead><tbody>";
     shown.forEach(function (p) {
-      html += "<tr><td>" + esc(p.security) + "</td><td>" + esc(p.direction) + "</td><td>" + time(p.open_time) + "</td><td>" + time(p.close_time) +
-        "</td><td>" + num(p.entry_price, 6) + "</td><td>" + num(p.close_price, 6) + '</td><td class="' + cls(p.profit_percent) + '">' + signed(p.profit_percent, 2, " %") + "</td>" +
-        (money ? '<td class="' + cls(p.profit_abs) + '">' + signed(p.profit_abs, 2) + "</td>" : "") + "</tr>";
+      html += "<tr>" + secCell(p) + '<td class="c-tin">' + time(p.open_time) + '</td><td class="c-tout">' + time(p.close_time) +
+        '</td><td class="c-pin">' + num(p.entry_price, 6) + '</td><td class="c-pout">' + num(p.close_price, 6) +
+        '</td><td class="c-pct ' + cls(p.profit_percent) + '">' + signed(p.profit_percent, 2, " %") + "</td>" +
+        (money ? '<td class="c-abs ' + cls(p.profit_abs) + '">' + signed(p.profit_abs, 2) + "</td>" : "") +
+        '<td class="c-mob"><span>' + time(p.open_time) + " → " + time(p.close_time) + "</span><span>" +
+        num(p.entry_price, 6) + " → " + num(p.close_price, 6) + "</span></td></tr>";
     });
     html += "</tbody></table></div>";
 
     var base = this.res.statsUrl;
     html += '<div class="more">';
     if (!full && o.allButton !== "off") html += '<button class="btn" data-act="all">Показать все сделки</button>';
+    if (full && shown.length < list.length) html += '<button class="btn" data-act="page">Показать ещё ' + Math.min(DEALS_PAGE, list.length - shown.length) + "</button>";
     if (o.links !== "off") {
       html += '<a class="btn" href="' + esc(resolveUrl(base, "deals.csv")) + '" download>Скачать CSV</a>';
       html += '<a class="btn" href="' + esc(resolveUrl(base, "deals.rss")) + '" target="_blank" rel="noopener">RSS</a>';
@@ -815,12 +1033,20 @@
 
   Block.prototype.bindDeals = function () {
     var self = this;
+    var page = this.box.querySelector('[data-act="page"]');
+    if (page) page.onclick = function () {
+      self.dealsShown += DEALS_PAGE;
+      var host = self.type === "widget" ? self.box.querySelector(".s-deals") : self.box;
+      host.innerHTML = self.htmlDeals();
+      self.bindDeals();
+    };
     var btn = this.box.querySelector('[data-act="all"]');
     if (!btn) return;
     btn.onclick = function () {
       btn.textContent = "Загрузка…";
       load(resolveUrl(self.res.statsUrl, "deals.json")).then(function (doc) {
         self.allDeals = doc.deals || [];
+        self.dealsShown = DEALS_PAGE;
         self.render();
       }).catch(function () { btn.textContent = "deals.json не опубликован"; });
     };
