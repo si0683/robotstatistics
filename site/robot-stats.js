@@ -28,7 +28,7 @@
     return;
   }
 
-  var VERSION = "2.1.0";
+  var VERSION = "2.2.0";
   var LWC_URL = "https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js";
 
   // =====================================================================
@@ -252,7 +252,9 @@
     ".dd-opt .hint{grid-column:2;grid-row:1/span 2;font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}",
 
     // карточки
-    ".cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px}",
+    // карточки: все в ряд на широком блоке, пополам (4+3) на среднем, по 2 на узком — без «сирот» в последней строке
+    ".cards{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:8px}",
+    "@container rs (max-width: 819px){.cards{grid-template-columns:repeat(var(--n2,2),minmax(0,1fr))}}",
     ".card{background:var(--card);border-radius:12px;padding:10px 12px;min-width:0}",
     ".card .l{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
     ".card .v{font-size:20px;font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}",
@@ -286,6 +288,11 @@
     ".side{display:inline-block;margin-left:6px;padding:0 6px;border-radius:5px;font-size:11px;font-weight:600;line-height:18px;vertical-align:1px}",
     ".side.long{color:var(--up);background:color-mix(in srgb,var(--up) 14%,transparent)}",
     ".side.short{color:var(--down);background:color-mix(in srgb,var(--down) 14%,transparent)}",
+    ".exit{display:inline-block;margin-left:4px;padding:0 6px;border-radius:5px;font-size:11px;font-weight:600;line-height:18px;vertical-align:1px;color:var(--muted);border:1px solid var(--line)}",
+    ".exit.stop{color:var(--down);border-color:color-mix(in srgb,var(--down) 45%,transparent)}",
+    ".exit.take{color:var(--up);border-color:color-mix(in srgb,var(--up) 45%,transparent)}",
+    ".c-st{color:var(--muted)}",
+    ".note{font-size:12px;font-weight:500;color:var(--muted)}",
 
     ".more{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}",
     ".btn{font-size:13px;color:var(--accent);background:none;border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;text-decoration:none;line-height:1.3}",
@@ -294,13 +301,13 @@
     ".foot{margin-top:16px;font-size:11px;color:var(--muted)}.foot a{color:inherit}",
 
     // ---------- узкий блок: сделки становятся карточками ----------
-    "@container rs (max-width: 720px){",
+    "@container rs (max-width: 860px){",
     ".deals thead,.open thead{display:none}",
     ".deals tr,.open tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:3px 12px;padding:10px 0;border-bottom:1px solid var(--line)}",
     ".deals tbody tr:last-child,.open tbody tr:last-child{border-bottom:0}",
     ".deals td,.open td{border:0;padding:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
     ".deals tr,.open tr{grid-template-columns:minmax(0,1fr) auto}",
-    ".c-tin,.c-tout,.c-pin,.c-pout{display:none!important}",
+    ".c-tin,.c-tout,.c-pin,.c-pout,.c-st,.c-sl,.c-tp{display:none!important}",
     ".c-sec{grid-column:1;grid-row:1}",
     ".c-pct{grid-column:2;grid-row:1;text-align:right!important;font-weight:650}",
     ".c-mob{display:flex!important;flex-direction:column;gap:1px;grid-column:1;grid-row:2;font-size:12px;color:var(--muted);white-space:normal!important}",
@@ -313,6 +320,7 @@
     ".dd-list{left:0;right:auto;width:100%;min-width:0;max-width:none}",
     ".name{font-size:17px}",
     ".cards{grid-template-columns:repeat(2,minmax(0,1fr))}",
+    ".cards.odd .card:last-child{grid-column:1/-1}",
     ".card .v{font-size:18px}",
     "table{font-size:12.5px}",
     ".stats{table-layout:fixed}.stats th:first-child{width:38%}",
@@ -338,7 +346,9 @@
     recovery:       { label: "Восстановление", get: function (d) { return getPath(d, "statistics.all.recovery"); }, fmt: "number" },
     payoff:         { label: "Payoff", get: function (d) { return getPath(d, "statistics.all.payoff_ratio"); }, fmt: "number" },
     commission:     { label: function (o) { return "Комиссия, " + o.currency; }, get: function (d) { return getPath(d, "statistics.all.commission"); }, fmt: "plainmoney" },
-    holding:        { label: "Время в сделке", get: function (d) { return getPath(d, "statistics.all.average_holding_time"); }, fmt: "duration" }
+    holding:        { label: "Время в сделке", get: function (d) { return getPath(d, "statistics.all.average_holding_time"); }, fmt: "duration" },
+    by_stop:        { label: "Закрыто по стопу", get: function (d) { return getPath(d, "summary.closed_by_stop"); }, fmt: "int" },
+    by_take:        { label: "Закрыто по тейку", get: function (d) { return getPath(d, "summary.closed_by_take"); }, fmt: "int" }
   };
 
   var DEFAULT_CARDS = "profit,profit_percent,deals,winrate,pf,drawdown,sharpe";
@@ -894,7 +904,7 @@
   Block.prototype.htmlCards = function () {
     var d = this.data, o = this.opts, money = d.money_shown !== false;
     var items = String(o.items || DEFAULT_CARDS).split(",").map(function (s) { return s.trim(); });
-    var html = '<div class="cards">';
+    var cards = [];
     items.forEach(function (key) {
       var m = METRICS[key];
       if (!m) return;
@@ -902,9 +912,11 @@
       var v = m.get(d);
       if (v == null || (m.hideZero && !Number(v))) return;
       var label = typeof m.label === "function" ? m.label(o) : m.label;
-      html += '<div class="card"><div class="l">' + esc(label) + '</div><div class="v ' + valueClass(v, m.fmt) + '">' + formatValue(v, m.fmt) + "</div></div>";
+      cards.push('<div class="card"><div class="l">' + esc(label) + '</div><div class="v ' + valueClass(v, m.fmt) + '">' + formatValue(v, m.fmt) + "</div></div>");
     });
-    return html + "</div>";
+    var n = cards.length;
+    var n2 = n <= 4 ? n : Math.ceil(n / 2);
+    return '<div class="cards' + (n % 2 ? " odd" : "") + '" style="--n:' + n + ";--n2:" + n2 + '">' + cards.join("") + "</div>";
   };
 
   Block.prototype.renderValue = function () {
@@ -981,19 +993,36 @@
   Block.prototype.htmlOpen = function (standalone) {
     var list = this.data.open_positions;
     if (!list || !list.length) return standalone ? '<div class="msg">Открытых позиций нет</div>' : "";
-    var html = "<h3>Открытые позиции</h3><div class=\"tw\"><table class=\"open\"><thead><tr><th>Бумага</th><th>Вход</th><th>Цена входа</th><th>Результат</th></tr></thead><tbody>";
+    var stops = list.some(function (p) { return p.stop_price != null || p.take_price != null; });
+    var html = "<h3>Открытые позиции</h3><div class=\"tw\"><table class=\"open\"><thead><tr><th>Бумага</th><th>Вход</th><th>Цена входа</th>" +
+      (stops ? "<th>Стоп</th><th>Тейк</th>" : "") + "<th>Результат</th></tr></thead><tbody>";
     list.forEach(function (p) {
-      html += "<tr>" + secCell(p) + '<td class="c-tin">' + time(p.open_time) + '</td><td class="c-pin">' + num(p.entry_price, 6) +
-        '</td><td class="c-pct ' + cls(p.profit_percent) + '">' + signed(p.profit_percent, 2, " %") + "</td>" +
-        '<td class="c-mob"><span>вход ' + time(p.open_time) + " · по " + num(p.entry_price, 6) + "</span></td></tr>";
+      html += "<tr>" + secCell(p) + '<td class="c-tin">' + time(p.open_time) + '</td><td class="c-pin">' + num(p.entry_price, 6) + "</td>" +
+        (stops ? '<td class="c-sl">' + optNum(p.stop_price) + '</td><td class="c-tp">' + optNum(p.take_price) + "</td>" : "") +
+        '<td class="c-pct ' + cls(p.profit_percent) + '">' + signed(p.profit_percent, 2, " %") + "</td>" +
+        '<td class="c-mob"><span>' + time(p.open_time) + " · " + num(p.entry_price, 6) + "</span>" + stopLine(p) + "</td></tr>";
     });
     return html + "</tbody></table></div>";
   };
 
   function secCell(p) {
     var long = p.direction === "Long";
-    return '<td class="c-sec"><span class="sec-name">' + esc(p.security) + '</span><span class="side ' + (long ? "long" : "short") + '">' +
-      (long ? "Long" : "Short") + "</span></td>";
+    var tip = [];
+    if (p.signal_open) tip.push("Вход: " + p.signal_open);
+    if (p.signal_close) tip.push("Выход: " + p.signal_close);
+    var exit = p.exit_by === "stop" ? '<span class="exit stop">стоп</span>' : p.exit_by === "take" ? '<span class="exit take">тейк</span>' : "";
+    return '<td class="c-sec"' + (tip.length ? ' title="' + esc(tip.join(" · ")) + '"' : "") + '><span class="sec-name">' + esc(p.security) +
+      '</span><span class="side ' + (long ? "long" : "short") + '">' + (long ? "Long" : "Short") + "</span>" + exit + "</td>";
+  }
+
+  function optNum(v) { return isNum(v) ? num(v, 6) : "—"; }
+
+  // «стоп 295,5 · тейк 309» для телефона
+  function stopLine(p) {
+    var parts = [];
+    if (isNum(p.stop_price)) parts.push("стоп " + num(p.stop_price, 6));
+    if (isNum(p.take_price)) parts.push("тейк " + num(p.take_price, 6));
+    return parts.length ? "<span>" + parts.join(" · ") + "</span>" : "";
   }
 
   var DEALS_PAGE = 50;
@@ -1005,18 +1034,24 @@
     var limit = parseInt(o.limit || 10, 10);
     if (full && !this.dealsShown) this.dealsShown = DEALS_PAGE;
     var shown = full ? list.slice(0, this.dealsShown) : (limit > 0 ? list.slice(0, limit) : list);
-    var html = "<h3>" + (full ? "Все сделки · " + num(list.length, 0) : "Последние сделки") + "</h3>";
+    var byStop = getPath(d, "summary.closed_by_stop"), byTake = getPath(d, "summary.closed_by_take");
+    var note = isNum(byStop) || isNum(byTake)
+      ? '<span class="note">по стопу ' + num(byStop || 0, 0) + " · по тейку " + num(byTake || 0, 0) + "</span>" : "";
+    var html = "<h3>" + (full ? "Все сделки · " + num(list.length, 0) : "Последние сделки") + note + "</h3>";
     if (!shown.length) return html + '<div class="msg">Закрытых сделок пока нет</div>';
 
-    html += '<div class="tw"><table class="deals"><thead><tr><th>Бумага</th><th>Вход</th><th>Выход</th><th>Цена входа</th><th>Цена выхода</th><th>Результат</th>' +
+    var stops = list.some(function (p) { return p.stop_price != null || p.take_price != null; });
+    html += '<div class="tw"><table class="deals"><thead><tr><th>Бумага</th><th>Вход</th><th>Выход</th><th>Цена входа</th><th>Цена выхода</th>' +
+      (stops ? "<th>Стоп / тейк</th>" : "") + "<th>Результат</th>" +
       (money ? "<th>" + esc(o.currency) + "</th>" : "") + "</tr></thead><tbody>";
     shown.forEach(function (p) {
       html += "<tr>" + secCell(p) + '<td class="c-tin">' + time(p.open_time) + '</td><td class="c-tout">' + time(p.close_time) +
-        '</td><td class="c-pin">' + num(p.entry_price, 6) + '</td><td class="c-pout">' + num(p.close_price, 6) +
-        '</td><td class="c-pct ' + cls(p.profit_percent) + '">' + signed(p.profit_percent, 2, " %") + "</td>" +
+        '</td><td class="c-pin">' + num(p.entry_price, 6) + '</td><td class="c-pout">' + num(p.close_price, 6) + "</td>" +
+        (stops ? '<td class="c-st">' + optNum(p.stop_price) + " / " + optNum(p.take_price) + "</td>" : "") +
+        '<td class="c-pct ' + cls(p.profit_percent) + '">' + signed(p.profit_percent, 2, " %") + "</td>" +
         (money ? '<td class="c-abs ' + cls(p.profit_abs) + '">' + signed(p.profit_abs, 2) + "</td>" : "") +
         '<td class="c-mob"><span>' + time(p.open_time) + " → " + time(p.close_time) + "</span><span>" +
-        num(p.entry_price, 6) + " → " + num(p.close_price, 6) + "</span></td></tr>";
+        num(p.entry_price, 6) + " → " + num(p.close_price, 6) + "</span>" + stopLine(p) + "</td></tr>";
     });
     html += "</tbody></table></div>";
 
