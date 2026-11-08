@@ -1,0 +1,12 @@
+# секреты агента — никогда в репозиторий
+agent.json
+history.json
+*.log
+
+# Obsidian
+.obsidian/workspace*.json
+.trash/
+
+# .NET
+bin/
+obj/
