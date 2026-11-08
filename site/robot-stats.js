@@ -28,7 +28,7 @@
     return;
   }
 
-  var VERSION = "2.2.0";
+  var VERSION = "2.3.0";
   var LWC_URL = "https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js";
 
   // =====================================================================
@@ -263,7 +263,22 @@
     // секции и заголовки
     ".sec{margin-top:22px}.sec:first-child{margin-top:0}.sec:empty{display:none}",
     "h3{font-size:14px;font-weight:650;margin:0 0 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;line-height:1.3}",
-    ".seg{margin-left:auto;display:inline-flex;padding:2px;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:9px}",
+    ".tools{margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}",
+    ".h-title{min-width:0}",
+    ".tgl{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted);background:var(--card);border:1px solid var(--line);",
+    "border-radius:9px;padding:4px 10px 4px 8px;cursor:pointer;line-height:1.2;transition:color .15s,border-color .15s}",
+    ".tgl:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}",
+    ".tgl.on{color:var(--text)}",
+    ".tgl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}",
+    ".dots{display:inline-flex;gap:2px}.dots i{width:7px;height:7px;border-radius:50%;background:var(--muted);opacity:.45;transition:opacity .15s,background .15s}",
+    ".tgl.on .dots i:first-child{background:var(--up);opacity:1}.tgl.on .dots i:last-child{background:var(--down);opacity:1}",
+    ".scroll{max-height:min(var(--mh,520px),70vh);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--line) transparent;border-radius:8px}",
+    ".scroll th:last-child,.scroll td:last-child{padding-right:12px}",
+    ".scroll:focus-visible{outline:2px solid var(--accent);outline-offset:2px}",
+    ".scroll::-webkit-scrollbar{width:8px}.scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}",
+    ".deals thead th{position:sticky;top:0;z-index:1;background:var(--rs-sticky-bg,var(--bg))}",
+    ".more .note{margin-right:auto;align-self:center}",
+    ".seg{display:inline-flex;padding:2px;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:9px}",
     ".seg button{font-size:12px;font-weight:600;background:none;border:0;color:var(--muted);padding:3px 11px;border-radius:7px;cursor:pointer;min-width:34px}",
     ".seg button.on{background:var(--bg);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}",
 
@@ -326,7 +341,8 @@
     ".stats{table-layout:fixed}.stats th:first-child{width:38%}",
     ".stats th,.stats td{padding:7px 3px;white-space:normal;overflow-wrap:break-word;line-height:1.3}",
     ".legend{position:static;display:block;max-width:none;background:none;padding:0 0 6px;font-size:11.5px}",
-    ".more .btn{flex:1 1 auto;text-align:center}",
+    ".more .btn{flex:1 1 0;text-align:center}",
+    ".more .note{flex:1 1 100%;margin:0 0 2px}",
     "}"
   ].join("");
 
@@ -659,7 +675,7 @@
     this.opts = opts;
     this.res = null;
     this.data = null;
-    this.allDeals = null;
+    this.dealsAll = null;
     this.unsub = null;
     this.chart = null;
 
@@ -713,10 +729,8 @@
   Block.prototype.switchTo = function (patch) {
     for (var k in patch) this.opts[k] = patch[k];
     this.data = null;
-    this.allDeals = null;
-    this.dealsShown = 0;
-    this.markerDeals = null;
-    this.markerLoading = false;
+    this.dealsAll = null;
+    this.dealsLoading = false;
     if (this.chart) { this.chart.destroy(); this.chart = null; }
     this.skeleton = false;
     this.start();
@@ -927,6 +941,33 @@
     this.box.textContent = formatValue(v, fmt);
   };
 
+  // Выбор посетителя (точки на графике, сколько сделок показать) — запоминаем в его браузере
+  function prefGet(key) { try { return window.localStorage.getItem("robot-stats:" + key); } catch (e) { return null; } }
+  function prefSet(key, v) { try { window.localStorage.setItem("robot-stats:" + key, v); } catch (e) { /* приватный режим */ } }
+
+  // Нужны все сделки (для точек на графике или списка 50/100) — грузим deals.json один раз на робота
+  Block.prototype.needAllDeals = function (after) {
+    var self = this, d = this.data;
+    var total = getPath(d, "summary.deals_count") || 0;
+    if (self.dealsAll || total <= (d.last_deals || []).length) return false;
+    if (!self.dealsLoading) {
+      self.dealsLoading = true;
+      load(resolveUrl(self.res.statsUrl, "deals.json")).then(function (doc) {
+        self.dealsAll = doc.deals || [];
+        self.render();
+      }).catch(function () { self.dealsAll = d.last_deals || []; /* deals.json не опубликован */ });
+    }
+    return true;
+  };
+
+  Block.prototype.markersShown = function () {
+    var pref = prefGet("markers");
+    var mode = pref || this.opts.markers || "auto";
+    if (mode === "on") return true;
+    if (mode === "off") return false;
+    return (getPath(this.data, "summary.deals_count") || 0) <= 300;
+  };
+
   Block.prototype.renderEquity = function (el, inWidget) {
     var self = this, d = this.data, o = this.opts;
     if (!el.querySelector(".eqchart")) {
@@ -938,16 +979,24 @@
     if (!self.chart) self.chart = new EquityChart(chartEl, {});
 
     var u = self.chart.unitInfo.call({ data: d, opts: { unit: o.unit, currency: o.currency } });
-    var seg = u.hasAbs && u.hasPct
-      ? '<span class="seg"><button data-unit="abs" class="' + (u.unit === "abs" ? "on" : "") + '">' + esc(o.currency) +
-        '</button><button data-unit="percent" class="' + (u.unit === "percent" ? "on" : "") + '">%</button></span>'
-      : "";
+    var markers = self.markersShown();
+    var tools = "";
+    if (o.markersToggle !== "off" && (d.equity || []).length > 1) {
+      tools += '<button type="button" class="tgl' + (markers ? " on" : "") + '" data-act="markers" aria-pressed="' + markers + '" title="Показать или скрыть точки сделок">' +
+        '<span class="dots"><i></i><i></i></span>Сделки</button>';
+    }
+    if (u.hasAbs && u.hasPct) {
+      tools += '<span class="seg"><button type="button" data-unit="abs" class="' + (u.unit === "abs" ? "on" : "") + '">' + esc(o.currency) +
+        '</button><button type="button" data-unit="percent" class="' + (u.unit === "percent" ? "on" : "") + '">%</button></span>';
+    }
     var title = o.title != null ? o.title : "Доходность";
-    head.style.display = title || seg ? "" : "none";
-    head.innerHTML = esc(title) + seg;
+    head.style.display = title || tools ? "" : "none";
+    head.innerHTML = '<span class="h-title">' + esc(title) + "</span>" + (tools ? '<span class="tools">' + tools + "</span>" : "");
     Array.prototype.forEach.call(head.querySelectorAll("[data-unit]"), function (b) {
       b.onclick = function () { o.unit = b.getAttribute("data-unit"); self.renderEquity(el, inWidget); };
     });
+    var tgl = head.querySelector('[data-act="markers"]');
+    if (tgl) tgl.onclick = function () { prefSet("markers", self.markersShown() ? "off" : "on"); self.renderEquity(el, inWidget); };
 
     if ((d.equity || []).length < 2) {
       chartEl.innerHTML = '<div class="msg">Пока мало сделок для графика</div>';
@@ -955,22 +1004,14 @@
       return;
     }
 
+    // точки ставим на каждую сделку: если в stats.json только последние — догружаем все
+    if (markers) self.needAllDeals();
+
     self.chart.update(d, {
       unit: u.unit, currency: o.currency, height: o.height || (inWidget ? 300 : 360),
-      drawdown: o.drawdown !== "off", markers: o.markers || "auto", engine: o.chart === "svg" ? "svg" : "lwc",
-      deals: self.allDeals || self.markerDeals || d.last_deals, colorsFrom: self.box, lwcSrc: o.lwcSrc
+      drawdown: o.drawdown !== "off", markers: markers ? "on" : "off", engine: o.chart === "svg" ? "svg" : "lwc",
+      deals: self.dealsAll || d.last_deals, colorsFrom: self.box, lwcSrc: o.lwcSrc
     });
-
-    // В stats.json только последние сделки. Если сделок немного — догружаем все, чтобы отметить каждую на графике.
-    var count = getPath(d, "summary.deals_count") || 0;
-    var lastCount = (d.last_deals || []).length;
-    if (!self.allDeals && !self.markerDeals && !self.markerLoading && o.markers !== "off" && count > lastCount && count <= 300) {
-      self.markerLoading = true;
-      load(resolveUrl(self.res.statsUrl, "deals.json")).then(function (doc) {
-        self.markerDeals = doc.deals || [];
-        self.renderEquity(el, inWidget);
-      }).catch(function () { /* deals.json не опубликован — останутся отметки последних сделок */ });
-    }
   };
 
   Block.prototype.htmlStats = function () {
@@ -1025,23 +1066,49 @@
     return parts.length ? "<span>" + parts.join(" · ") + "</span>" : "";
   }
 
-  var DEALS_PAGE = 50;
+  var DEALS_STEPS = [20, 50, 100];
+
+  // Сколько сделок показывать: свой data-limit (5, 10…) — фиксированно без переключателя; иначе 20 / 50 / 100 на выбор
+  Block.prototype.dealsLimit = function () {
+    var fixed = parseInt(this.opts.limit || 0, 10);
+    if (fixed > 0 && DEALS_STEPS.indexOf(fixed) < 0) return { n: fixed, filter: false };
+    var n = parseInt(prefGet("deals") || 0, 10) || fixed || 20;
+    if (DEALS_STEPS.indexOf(n) < 0) n = 20;
+    return { n: n, filter: this.opts.dealsFilter !== "off" };
+  };
 
   Block.prototype.htmlDeals = function () {
     var d = this.data, o = this.opts, money = d.money_shown !== false;
-    var full = !!this.allDeals;
-    var list = (this.allDeals || d.last_deals || []).slice().sort(function (a, b) { return String(b.close_time).localeCompare(String(a.close_time)); });
-    var limit = parseInt(o.limit || 10, 10);
-    if (full && !this.dealsShown) this.dealsShown = DEALS_PAGE;
-    var shown = full ? list.slice(0, this.dealsShown) : (limit > 0 ? list.slice(0, limit) : list);
+    var lim = this.dealsLimit();
+    var total = getPath(d, "summary.deals_count") || (d.last_deals || []).length;
+    var lastLen = (d.last_deals || []).length;
+
+    if (lim.n > lastLen && total > lastLen) this.needAllDeals();
+    var source = this.dealsAll && this.dealsAll.length ? this.dealsAll : (d.last_deals || []);
+    var list = source.slice().sort(function (a, b) { return String(b.close_time).localeCompare(String(a.close_time)); });
+    var shown = list.slice(0, lim.n);
+
     var byStop = getPath(d, "summary.closed_by_stop"), byTake = getPath(d, "summary.closed_by_take");
     var note = isNum(byStop) || isNum(byTake)
       ? '<span class="note">по стопу ' + num(byStop || 0, 0) + " · по тейку " + num(byTake || 0, 0) + "</span>" : "";
-    var html = "<h3>" + (full ? "Все сделки · " + num(list.length, 0) : "Последние сделки") + note + "</h3>";
+
+    var filter = "";
+    if (lim.filter && total > DEALS_STEPS[0]) {
+      filter = '<span class="tools"><span class="seg" role="group" aria-label="Сколько сделок показать">';
+      DEALS_STEPS.forEach(function (n, i) {
+        if (i > 0 && total <= DEALS_STEPS[i - 1]) return; // нет смысла показывать «100», если сделок 30
+        filter += '<button type="button" data-deals="' + n + '" class="' + (n === lim.n ? "on" : "") + '">' + n + "</button>";
+      });
+      filter += "</span></span>";
+    }
+
+    var html = '<h3><span class="h-title">Последние сделки</span>' + note + filter + "</h3>";
     if (!shown.length) return html + '<div class="msg">Закрытых сделок пока нет</div>';
 
     var stops = list.some(function (p) { return p.stop_price != null || p.take_price != null; });
-    html += '<div class="tw"><table class="deals"><thead><tr><th>Бумага</th><th>Вход</th><th>Выход</th><th>Цена входа</th><th>Цена выхода</th>' +
+    var maxH = parseInt(o.maxHeight || 520, 10);
+    html += '<div class="tw' + (maxH > 0 ? " scroll" : "") + '"' + (maxH > 0 ? ' style="--mh:' + maxH + 'px"' : "") + ' tabindex="0">' +
+      '<table class="deals"><thead><tr><th>Бумага</th><th>Вход</th><th>Выход</th><th>Цена входа</th><th>Цена выхода</th>' +
       (stops ? "<th>Стоп / тейк</th>" : "") + "<th>Результат</th>" +
       (money ? "<th>" + esc(o.currency) + "</th>" : "") + "</tr></thead><tbody>";
     shown.forEach(function (p) {
@@ -1056,35 +1123,27 @@
     html += "</tbody></table></div>";
 
     var base = this.res.statsUrl;
-    html += '<div class="more">';
-    if (!full && o.allButton !== "off") html += '<button class="btn" data-act="all">Показать все сделки</button>';
-    if (full && shown.length < list.length) html += '<button class="btn" data-act="page">Показать ещё ' + Math.min(DEALS_PAGE, list.length - shown.length) + "</button>";
+    var shownNote = '<span class="note">показано ' + num(shown.length, 0) + " из " + num(total, 0) + "</span>";
     if (o.links !== "off") {
-      html += '<a class="btn" href="' + esc(resolveUrl(base, "deals.csv")) + '" download>Скачать CSV</a>';
-      html += '<a class="btn" href="' + esc(resolveUrl(base, "deals.rss")) + '" target="_blank" rel="noopener">RSS</a>';
+      html += '<div class="more">' + shownNote +
+        '<a class="btn" href="' + esc(resolveUrl(base, "deals.csv")) + '" download>Все сделки — CSV</a>' +
+        '<a class="btn" href="' + esc(resolveUrl(base, "deals.rss")) + '" target="_blank" rel="noopener">RSS</a></div>';
+    } else {
+      html += '<div class="more">' + shownNote + "</div>";
     }
-    return html + "</div>";
+    return html;
   };
 
   Block.prototype.bindDeals = function () {
     var self = this;
-    var page = this.box.querySelector('[data-act="page"]');
-    if (page) page.onclick = function () {
-      self.dealsShown += DEALS_PAGE;
-      var host = self.type === "widget" ? self.box.querySelector(".s-deals") : self.box;
-      host.innerHTML = self.htmlDeals();
-      self.bindDeals();
-    };
-    var btn = this.box.querySelector('[data-act="all"]');
-    if (!btn) return;
-    btn.onclick = function () {
-      btn.textContent = "Загрузка…";
-      load(resolveUrl(self.res.statsUrl, "deals.json")).then(function (doc) {
-        self.allDeals = doc.deals || [];
-        self.dealsShown = DEALS_PAGE;
-        self.render();
-      }).catch(function () { btn.textContent = "deals.json не опубликован"; });
-    };
+    Array.prototype.forEach.call(this.box.querySelectorAll("[data-deals]"), function (b) {
+      b.onclick = function () {
+        prefSet("deals", b.getAttribute("data-deals"));
+        var host = self.type === "widget" ? self.box.querySelector(".s-deals") : self.box;
+        host.innerHTML = self.htmlDeals();
+        self.bindDeals();
+      };
+    });
   };
 
   // =====================================================================
@@ -1098,7 +1157,8 @@
       src: "data-src", robot: "data-robot", run: "data-run", theme: "data-theme", currency: "data-currency",
       refresh: "data-refresh", offline: "data-offline", height: "data-height", unit: "data-unit", items: "data-items",
       field: "data-field", format: "data-format", limit: "data-limit", markers: "data-markers", chart: "data-chart",
-      drawdown: "data-drawdown", title: "data-title", links: "data-links", allButton: "data-all-button", frame: "data-frame",
+      drawdown: "data-drawdown", title: "data-title", links: "data-links", frame: "data-frame",
+      markersToggle: "data-markers-toggle", dealsFilter: "data-deals-filter", maxHeight: "data-max-height",
       lwcSrc: "data-lwc-src"
     };
     for (var key in map) {

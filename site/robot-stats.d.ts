@@ -176,7 +176,12 @@ declare namespace RobotStatistics {
     /** deals */
     limit?: number;
     links?: "on" | "off";
-    allButton?: "on" | "off";
+    /** deals: переключатель 20 / 50 / 100 */
+    dealsFilter?: "on" | "off";
+    /** deals: высота списка с прокруткой, px; 0 — без прокрутки */
+    maxHeight?: number;
+    /** equity: кнопка «Сделки» (показать/скрыть точки) */
+    markersToggle?: "on" | "off";
     /** widget: рамка вокруг */
     frame?: "on" | "off";
     /** свой адрес Lightweight Charts (если CDN недоступен) */
