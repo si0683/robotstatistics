@@ -9,3 +9,6 @@ examples/docker-site/data/
 bin/
 obj/
 *.tmp
+
+# Технические задания и внутренняя документация не публикуются на GitHub
+TechnicalSpecification/
