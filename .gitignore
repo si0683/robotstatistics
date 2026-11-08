@@ -1,5 +1,6 @@
 # секреты агента — никогда в репозиторий
 agent.json
+uploader.json
 history.json
 *.log
 
