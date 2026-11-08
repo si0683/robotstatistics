@@ -16,6 +16,7 @@ using OsEngine.Market.Servers.Tester;
 using OsEngine.OsTrader;
 using OsEngine.OsTrader.Panels;
 using OsEngine.OsTrader.Panels.Attributes;
+using OsEngine.Themes;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -51,7 +52,7 @@ namespace OsEngine.Robots
 
         public RobotStatistics(string name, StartProgram startProgram) : base(name, startProgram)
         {
-            _regime = CreateParameter("Режим", "Включено", new[] { "Включено", "Выключено" }, "Основное");
+            _regime = CreateParameter("Режим", "On", new[] { "On", "Off" }, "Основное");
             _chooseButton = CreateParameterButton("Выбрать роботов…", "Основное");
             _interval = CreateParameter("Обновлять каждые, сек", 30, 5, 600, 5, "Основное");
             _publishNowButton = CreateParameterButton("Обновить сейчас", "Основное");
@@ -87,6 +88,10 @@ namespace OsEngine.Robots
             Description = "Не торгует. Публикует статистику выбранных роботов (терминал — постоянно, тестер — после каждого прогона): stats.json, deals.json, deals.csv, stats.csv, deals.rss — в папку, по HTTP и/или на адрес сайта.";
 
             LoadChoice();
+
+            // тема OsEngine — для сайта (data-theme="osengine"); при смене темы публикуем сразу
+            RefreshTheme();
+            ThemeManager.ThemeChangedEvent += ThemeManager_ThemeChangedEvent;
 
             if (startProgram == StartProgram.IsOsTrader)
             {
@@ -143,7 +148,8 @@ namespace OsEngine.Robots
 
         private bool IsOn
         {
-            get { return _regime.ValueString == "Включено"; }
+            // "Включено" — значение из прежних версий, чтобы после обновления робот не выключился
+            get { return _regime.ValueString == "On" || _regime.ValueString == "Включено"; }
         }
 
         #endregion
@@ -336,6 +342,8 @@ namespace OsEngine.Robots
                     _testerServer.TestingEndEvent -= TesterServer_TestingEndEvent;
                     _testerServer = null;
                 }
+
+                ThemeManager.ThemeChangedEvent -= ThemeManager_ThemeChangedEvent;
 
                 if (File.Exists(ChoiceFile))
                 {
@@ -747,6 +755,7 @@ namespace OsEngine.Robots
             robotsDocument["schema"] = 1;
             robotsDocument["source"] = source;
             robotsDocument["generated_at"] = generatedAt;
+            robotsDocument["theme"] = GetThemeInfo();
             robotsDocument["robots"] = index;
             files["robots.json"] = ToJson(robotsDocument);
 
@@ -884,6 +893,79 @@ namespace OsEngine.Robots
 
         #endregion
 
+        #region Theme
+
+        // Текущая тема OsEngine для сайта: id, название и цвета (работает и для пользовательских тем из Engine\Themes)
+        private Dictionary<string, object> _theme;
+
+        private readonly object _themeLocker = new object();
+
+        private void ThemeManager_ThemeChangedEvent()
+        {
+            RefreshTheme();
+            _lastPublishTime = DateTime.MinValue; // сайт перекрасится при ближайшей публикации, не дожидаясь таймера
+        }
+
+        private void RefreshTheme()
+        {
+            try
+            {
+                System.Windows.Application app = System.Windows.Application.Current;
+
+                if (app == null)
+                {
+                    return;
+                }
+
+                Dictionary<string, object> theme = null;
+
+                // ресурсы темы читаются только из потока интерфейса
+                app.Dispatcher.Invoke(() =>
+                {
+                    Dictionary<string, object> colors = new Dictionary<string, object>();
+                    colors["bg"] = ToHex(ThemeManager.GetColor("StandardBackGroundColor"));
+                    colors["card"] = ToHex(ThemeManager.GetColor("StandardBackGroundColorLight"));
+                    colors["text"] = ToHex(ThemeManager.GetColor("ControlForegroundWhite"));
+                    colors["muted"] = ToHex(ThemeManager.GetColor("TextSecondaryBrush"));
+                    colors["accent"] = ToHex(ThemeManager.GetColor("LabelForegroundBrush"));
+                    colors["line"] = ToHex(ThemeManager.GetColor("ChartBorderColor"));
+
+                    System.Windows.Media.Color bg = ThemeManager.GetColor("StandardBackGroundColor");
+                    double luminance = (0.2126 * bg.R + 0.7152 * bg.G + 0.0722 * bg.B) / 255.0;
+
+                    theme = new Dictionary<string, object>();
+                    theme["id"] = ThemeManager.CurrentTheme;
+                    theme["name"] = ThemeManager.GetString("ThemeDisplayName");
+                    theme["dark"] = luminance < 0.5;
+                    theme["colors"] = colors;
+                });
+
+                lock (_themeLocker)
+                {
+                    _theme = theme;
+                }
+            }
+            catch (Exception error)
+            {
+                SendNewLogMessage("RobotStatistics: тема OsEngine не прочитана: " + error.Message, LogMessageType.Error);
+            }
+        }
+
+        private Dictionary<string, object> GetThemeInfo()
+        {
+            lock (_themeLocker)
+            {
+                return _theme;
+            }
+        }
+
+        private static string ToHex(System.Windows.Media.Color c)
+        {
+            return "#" + c.R.ToString("X2") + c.G.ToString("X2") + c.B.ToString("X2");
+        }
+
+        #endregion
+
         #region Robots and positions
 
         private List<BotPanel> GetAllBots()
@@ -982,6 +1064,7 @@ namespace OsEngine.Robots
             doc["type"] = bot.GetNameStrategyType();
             doc["generated_at"] = generatedAt;
             doc["money_shown"] = money;
+            doc["theme"] = GetThemeInfo();
 
             Dictionary<string, object> status = new Dictionary<string, object>();
             status["terminal"] = "online";
@@ -1000,7 +1083,7 @@ namespace OsEngine.Robots
             summary["deals_count"] = closed.Count;
             summary["open_count"] = open.Count;
 
-            if (_showStops.ValueBool)
+            if (_showStops.ValueBool && all.Any(p => p.StopOrderPrice > 0 || p.ProfitOrderPrice > 0))
             {
                 summary["closed_by_stop"] = closed.Count(p => GetExitBy(p) == "stop");
                 summary["closed_by_take"] = closed.Count(p => GetExitBy(p) == "take");
@@ -1804,7 +1887,9 @@ namespace OsEngine.Robots
         public string PublicName;
     }
 
-    /// <summary>Окно «Какие роботы публиковать»: список роботов терминала с галочками и подписями.</summary>
+    /// <summary>Окно «Какие роботы публиковать»: список роботов терминала с галочками и подписями.
+    /// Оформление — стили и цвета текущей темы OsEngine (WindowStyleCanResize, ControlForegroundWhite и т. д.),
+    /// поэтому окно выглядит как остальные окна OsEngine и меняется вместе с темой.</summary>
     public class RobotStatisticsChooseUi : System.Windows.Window
     {
         public bool PublishAll;
@@ -1817,7 +1902,12 @@ namespace OsEngine.Robots
 
         private List<System.Windows.Controls.TextBox> _nameBoxes = new List<System.Windows.Controls.TextBox>();
 
+        // выбор по отдельным роботам — сохраняем, пока включено «все роботы»
+        private List<bool> _savedSelection = new List<bool>();
+
         private System.Windows.Controls.Grid _grid;
+
+        private System.Windows.Controls.TextBlock _counter;
 
         public RobotStatisticsChooseUi(List<RobotStatisticsChoice> rows, bool publishAll)
         {
@@ -1825,174 +1915,308 @@ namespace OsEngine.Robots
             PublishAll = publishAll;
 
             Title = "RobotStatistics — какие роботы показывать на сайте";
-            Width = 640;
-            Height = 520;
-            MinWidth = 480;
-            MinHeight = 320;
+            Width = 680;
+            Height = 540;
+            MinWidth = 520;
+            MinHeight = 360;
             WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen;
+            ShowInTaskbar = false;
 
-            System.Windows.Controls.DockPanel root = new System.Windows.Controls.DockPanel();
-            root.Margin = new System.Windows.Thickness(14);
+            ApplyOsEngineStyle();
 
-            System.Windows.Controls.TextBlock hint = new System.Windows.Controls.TextBlock();
-            hint.Text = "Отметьте роботов, статистику которых нужно публиковать. «Подпись на сайте» — как робот будет называться у вас на сайте (пусто — имя из OsEngine).";
+            System.Windows.Controls.Grid root = new System.Windows.Controls.Grid();
+            root.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = System.Windows.GridLength.Auto });
+            root.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = new System.Windows.GridLength(1, System.Windows.GridUnitType.Star) });
+            root.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = System.Windows.GridLength.Auto });
+
+            // ---------- верх: пояснение и «все роботы» ----------
+            System.Windows.Controls.Grid top = MakePanel();
+            System.Windows.Controls.StackPanel topStack = new System.Windows.Controls.StackPanel();
+            topStack.Margin = new System.Windows.Thickness(12, 10, 12, 10);
+
+            System.Windows.Controls.TextBlock hint = MakeText(
+                "Отметьте роботов, статистику которых нужно публиковать на сайте. " +
+                "«Подпись на сайте» — как робот будет называться у посетителей; пусто — имя из OsEngine.", false);
             hint.TextWrapping = System.Windows.TextWrapping.Wrap;
-            hint.Margin = new System.Windows.Thickness(0, 0, 0, 10);
-            System.Windows.Controls.DockPanel.SetDock(hint, System.Windows.Controls.Dock.Top);
-            root.Children.Add(hint);
+            hint.Margin = new System.Windows.Thickness(0, 0, 0, 8);
+            topStack.Children.Add(hint);
 
             _allBox = new System.Windows.Controls.CheckBox();
-            _allBox.Content = "Публиковать всех роботов (новые роботы добавятся сами)";
+            _allBox.Content = MakeText("Публиковать всех роботов — новые роботы добавятся сами", true);
             _allBox.IsChecked = publishAll;
-            _allBox.FontWeight = System.Windows.FontWeights.SemiBold;
-            _allBox.Margin = new System.Windows.Thickness(0, 0, 0, 10);
             _allBox.Click += AllBox_Click;
-            System.Windows.Controls.DockPanel.SetDock(_allBox, System.Windows.Controls.Dock.Top);
-            root.Children.Add(_allBox);
+            topStack.Children.Add(_allBox);
 
-            System.Windows.Controls.StackPanel buttons = new System.Windows.Controls.StackPanel();
-            buttons.Orientation = System.Windows.Controls.Orientation.Horizontal;
-            buttons.HorizontalAlignment = System.Windows.HorizontalAlignment.Right;
-            buttons.Margin = new System.Windows.Thickness(0, 12, 0, 0);
-            buttons.Children.Add(MakeButton("Отметить всех", SelectAll_Click));
-            buttons.Children.Add(MakeButton("Снять все", SelectNone_Click));
-            buttons.Children.Add(MakeButton("Сохранить", Save_Click));
-            buttons.Children.Add(MakeButton("Отмена", Cancel_Click));
-            System.Windows.Controls.DockPanel.SetDock(buttons, System.Windows.Controls.Dock.Bottom);
-            root.Children.Add(buttons);
+            top.Children.Add(topStack);
+            System.Windows.Controls.Grid.SetRow(top, 0);
+            root.Children.Add(top);
+
+            // ---------- список роботов ----------
+            System.Windows.Controls.Grid listPanel = MakePanel();
+            listPanel.Margin = new System.Windows.Thickness(5, 0, 5, 5);
+
+            System.Windows.Controls.Grid listLayout = new System.Windows.Controls.Grid();
+            listLayout.Margin = new System.Windows.Thickness(12, 8, 12, 8);
+            listLayout.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = System.Windows.GridLength.Auto });
+            listLayout.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = new System.Windows.GridLength(1, System.Windows.GridUnitType.Star) });
+
+            System.Windows.Controls.Grid header = MakeRowGrid();
+            header.Margin = new System.Windows.Thickness(0, 0, 0, 4);
+            AddCell(header, MakeLabel("Робот"), 0);
+            AddCell(header, MakeLabel("Тип"), 1);
+            AddCell(header, MakeLabel("Подпись на сайте"), 2);
+            System.Windows.Controls.Grid.SetRow(header, 0);
+            listLayout.Children.Add(header);
 
             _grid = new System.Windows.Controls.Grid();
-            _grid.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = new System.Windows.GridLength(1, System.Windows.GridUnitType.Star) });
-            _grid.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = new System.Windows.GridLength(150) });
-            _grid.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = new System.Windows.GridLength(1, System.Windows.GridUnitType.Star) });
-
-            AddRow(MakeHeader("Робот"), MakeHeader("Тип"), MakeHeader("Подпись на сайте"));
 
             if (rows.Count == 0)
             {
-                System.Windows.Controls.TextBlock empty = new System.Windows.Controls.TextBlock();
-                empty.Text = "В терминале пока нет других роботов. Добавьте робота и откройте это окно снова.";
-                empty.Margin = new System.Windows.Thickness(0, 8, 0, 0);
-                AddRow(empty, null, null);
+                System.Windows.Controls.TextBlock empty = MakeText(
+                    "В этом режиме пока нет других роботов. Добавьте робота и откройте окно снова.", false);
+                empty.Margin = new System.Windows.Thickness(0, 10, 0, 0);
+                empty.TextWrapping = System.Windows.TextWrapping.Wrap;
+                _grid.Children.Add(empty);
             }
 
             for (int i = 0; i < rows.Count; i++)
             {
+                _grid.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = System.Windows.GridLength.Auto });
+
+                System.Windows.Controls.Grid row = MakeRowGrid();
+                row.Margin = new System.Windows.Thickness(0, 2, 0, 2);
+
                 System.Windows.Controls.CheckBox box = new System.Windows.Controls.CheckBox();
                 // TextBlock, а не строка: иначе WPF принимает «_» в имени за горячую клавишу и прячет его
-                box.Content = new System.Windows.Controls.TextBlock { Text = rows[i].Name };
+                box.Content = MakeText(rows[i].Name, true);
                 box.IsChecked = rows[i].Selected;
-                box.VerticalAlignment = System.Windows.VerticalAlignment.Center;
+                box.ToolTip = rows[i].Name;
+                box.Click += RowBox_Click;
                 _rowBoxes.Add(box);
+                _savedSelection.Add(rows[i].Selected);
+                AddCell(row, box, 0);
 
-                System.Windows.Controls.TextBlock type = new System.Windows.Controls.TextBlock();
-                type.Text = rows[i].Type;
-                type.Opacity = 0.7;
+                System.Windows.Controls.TextBlock type = MakeText(rows[i].Type, false);
                 type.VerticalAlignment = System.Windows.VerticalAlignment.Center;
                 type.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis;
+                type.ToolTip = rows[i].Type;
+                AddCell(row, type, 1);
 
                 System.Windows.Controls.TextBox publicName = new System.Windows.Controls.TextBox();
                 publicName.Text = rows[i].PublicName ?? "";
-                publicName.Padding = new System.Windows.Thickness(2);
+                publicName.Height = 24;
+                publicName.VerticalContentAlignment = System.Windows.VerticalAlignment.Center;
                 _nameBoxes.Add(publicName);
+                AddCell(row, publicName, 2);
 
-                AddRow(box, type, publicName);
+                System.Windows.Controls.Grid.SetRow(row, i);
+                _grid.Children.Add(row);
             }
 
             System.Windows.Controls.ScrollViewer scroll = new System.Windows.Controls.ScrollViewer();
             scroll.VerticalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Auto;
+            scroll.HorizontalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Disabled;
             scroll.Content = _grid;
-            root.Children.Add(scroll);
+            System.Windows.Controls.Grid.SetRow(scroll, 1);
+            listLayout.Children.Add(scroll);
+
+            listPanel.Children.Add(listLayout);
+            System.Windows.Controls.Grid.SetRow(listPanel, 1);
+            root.Children.Add(listPanel);
+
+            // ---------- кнопки ----------
+            System.Windows.Controls.Grid bottom = new System.Windows.Controls.Grid();
+            bottom.Margin = new System.Windows.Thickness(5, 0, 5, 8);
+            bottom.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = System.Windows.GridLength.Auto });
+            bottom.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = new System.Windows.GridLength(1, System.Windows.GridUnitType.Star) });
+            bottom.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = System.Windows.GridLength.Auto });
+
+            System.Windows.Controls.StackPanel leftButtons = new System.Windows.Controls.StackPanel();
+            leftButtons.Orientation = System.Windows.Controls.Orientation.Horizontal;
+            leftButtons.Children.Add(MakeButton("Отметить всех", SelectAll_Click, false));
+            leftButtons.Children.Add(MakeButton("Снять все", SelectNone_Click, false));
+            System.Windows.Controls.Grid.SetColumn(leftButtons, 0);
+            bottom.Children.Add(leftButtons);
+
+            _counter = MakeText("", false);
+            _counter.VerticalAlignment = System.Windows.VerticalAlignment.Center;
+            _counter.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis;
+            _counter.Margin = new System.Windows.Thickness(12, 0, 12, 0);
+            System.Windows.Controls.Grid.SetColumn(_counter, 1);
+            bottom.Children.Add(_counter);
+
+            System.Windows.Controls.StackPanel rightButtons = new System.Windows.Controls.StackPanel();
+            rightButtons.Orientation = System.Windows.Controls.Orientation.Horizontal;
+            rightButtons.Children.Add(MakeButton("Отмена", Cancel_Click, false));
+            rightButtons.Children.Add(MakeButton("Сохранить", Save_Click, true));
+            System.Windows.Controls.Grid.SetColumn(rightButtons, 2);
+            bottom.Children.Add(rightButtons);
+
+            System.Windows.Controls.Grid.SetRow(bottom, 2);
+            root.Children.Add(bottom);
 
             Content = root;
-            UpdateEnabled();
+            UpdateState();
         }
 
-        private void AddRow(System.Windows.UIElement a, System.Windows.UIElement b, System.Windows.UIElement c)
+        // Стиль окна OsEngine (рамка, заголовок, фон) — если окно открыто внутри OsEngine
+        private void ApplyOsEngineStyle()
         {
-            int row = _grid.RowDefinitions.Count;
-            _grid.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = System.Windows.GridLength.Auto });
-
-            System.Windows.UIElement[] cells = { a, b, c };
-
-            for (int i = 0; i < cells.Length; i++)
+            try
             {
-                if (cells[i] == null)
+                System.Windows.Application app = System.Windows.Application.Current;
+
+                if (app == null)
                 {
-                    continue;
+                    return;
                 }
 
-                System.Windows.FrameworkElement element = (System.Windows.FrameworkElement)cells[i];
-                element.Margin = new System.Windows.Thickness(0, 3, 10, 3);
-                System.Windows.Controls.Grid.SetRow(element, row);
-                System.Windows.Controls.Grid.SetColumn(element, i);
-
-                if (b == null && c == null)
+                if (app.TryFindResource("WindowStyleCanResize") is System.Windows.Style style)
                 {
-                    System.Windows.Controls.Grid.SetColumnSpan(element, 3);
+                    Style = style;
                 }
 
-                _grid.Children.Add(element);
+                try
+                {
+                    Icon = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/OsEngine;component/Images/OsLogo.ico"));
+                }
+                catch
+                {
+                    // без иконки
+                }
+            }
+            catch
+            {
+                // окно останется в стандартном оформлении Windows
             }
         }
 
-        private static System.Windows.Controls.TextBlock MakeHeader(string text)
+        // Панель с фоном как у панелей OsEngine (Rectangle со стилем темы)
+        private static System.Windows.Controls.Grid MakePanel()
         {
-            System.Windows.Controls.TextBlock header = new System.Windows.Controls.TextBlock();
-            header.Text = text;
-            header.FontWeight = System.Windows.FontWeights.SemiBold;
-            header.Opacity = 0.75;
-            return header;
+            System.Windows.Controls.Grid panel = new System.Windows.Controls.Grid();
+            panel.Margin = new System.Windows.Thickness(5);
+            System.Windows.Shapes.Rectangle background = new System.Windows.Shapes.Rectangle();
+            background.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "ControlBackgroundNormalLight");
+            background.RadiusX = 2;
+            background.RadiusY = 2;
+            panel.Children.Add(background);
+            return panel;
         }
 
-        private static System.Windows.Controls.Button MakeButton(string text, System.Windows.RoutedEventHandler click)
+        private static System.Windows.Controls.Grid MakeRowGrid()
+        {
+            System.Windows.Controls.Grid row = new System.Windows.Controls.Grid();
+            row.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = new System.Windows.GridLength(1.2, System.Windows.GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = new System.Windows.GridLength(1, System.Windows.GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = new System.Windows.GridLength(1.3, System.Windows.GridUnitType.Star) });
+            return row;
+        }
+
+        private static void AddCell(System.Windows.Controls.Grid row, System.Windows.FrameworkElement element, int column)
+        {
+            element.Margin = new System.Windows.Thickness(0, 0, column < 2 ? 12 : 0, 0);
+            System.Windows.Controls.Grid.SetColumn(element, column);
+            row.Children.Add(element);
+        }
+
+        // Текст цветом темы: основной (ControlForegroundWhite) или второстепенный (TextSecondaryBrush)
+        private static System.Windows.Controls.TextBlock MakeText(string text, bool main)
+        {
+            System.Windows.Controls.TextBlock block = new System.Windows.Controls.TextBlock();
+            block.Text = text ?? "";
+            block.FontSize = 13;
+            block.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, main ? "ControlForegroundWhite" : "TextSecondaryBrush");
+            return block;
+        }
+
+        private static System.Windows.Controls.Label MakeLabel(string text)
+        {
+            System.Windows.Controls.Label label = new System.Windows.Controls.Label();
+            label.Content = text;
+            label.Padding = new System.Windows.Thickness(0);
+            label.FontWeight = System.Windows.FontWeights.SemiBold;
+            return label;
+        }
+
+        private static System.Windows.Controls.Button MakeButton(string text, System.Windows.RoutedEventHandler click, bool main)
         {
             System.Windows.Controls.Button button = new System.Windows.Controls.Button();
             button.Content = text;
-            button.MinWidth = 100;
-            button.Padding = new System.Windows.Thickness(10, 3, 10, 3);
-            button.Margin = new System.Windows.Thickness(8, 0, 0, 0);
+            button.MinWidth = 120;
+            button.Height = 26;
+            button.Margin = new System.Windows.Thickness(0, 0, 6, 0);
+
+            if (main)
+            {
+                button.FontWeight = System.Windows.FontWeights.Bold;
+                button.Margin = new System.Windows.Thickness(0);
+            }
+
             button.Click += click;
             return button;
         }
 
-        private void UpdateEnabled()
+        private void UpdateState()
         {
-            bool enabled = _allBox.IsChecked != true;
+            bool all = _allBox.IsChecked == true;
+            int selected = 0;
 
             for (int i = 0; i < _rowBoxes.Count; i++)
             {
-                _rowBoxes[i].IsEnabled = enabled;
+                _rowBoxes[i].IsEnabled = !all;
+                _rowBoxes[i].IsChecked = all || _savedSelection[i];
+
+                if (_savedSelection[i])
+                {
+                    selected++;
+                }
             }
+
+            _counter.Text = all
+                ? "Выбраны все: " + _rowBoxes.Count
+                : "Выбрано: " + selected + " из " + _rowBoxes.Count;
         }
 
         private void AllBox_Click(object sender, System.Windows.RoutedEventArgs e)
         {
-            UpdateEnabled();
+            UpdateState();
+        }
+
+        private void RowBox_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            int index = _rowBoxes.IndexOf((System.Windows.Controls.CheckBox)sender);
+
+            if (index >= 0)
+            {
+                _savedSelection[index] = _rowBoxes[index].IsChecked == true;
+            }
+
+            UpdateState();
         }
 
         private void SelectAll_Click(object sender, System.Windows.RoutedEventArgs e)
         {
             _allBox.IsChecked = false;
 
-            for (int i = 0; i < _rowBoxes.Count; i++)
+            for (int i = 0; i < _savedSelection.Count; i++)
             {
-                _rowBoxes[i].IsChecked = true;
+                _savedSelection[i] = true;
             }
 
-            UpdateEnabled();
+            UpdateState();
         }
 
         private void SelectNone_Click(object sender, System.Windows.RoutedEventArgs e)
         {
             _allBox.IsChecked = false;
 
-            for (int i = 0; i < _rowBoxes.Count; i++)
+            for (int i = 0; i < _savedSelection.Count; i++)
             {
-                _rowBoxes[i].IsChecked = false;
+                _savedSelection[i] = false;
             }
 
-            UpdateEnabled();
+            UpdateState();
         }
 
         private void Save_Click(object sender, System.Windows.RoutedEventArgs e)
@@ -2001,7 +2225,7 @@ namespace OsEngine.Robots
 
             for (int i = 0; i < Rows.Count; i++)
             {
-                Rows[i].Selected = _rowBoxes[i].IsChecked == true;
+                Rows[i].Selected = _savedSelection[i];
                 Rows[i].PublicName = _nameBoxes[i].Text.Trim();
             }
 

@@ -24,6 +24,7 @@
 |---|---|
 | [`osengine/RobotStatistics.cs`](osengine/RobotStatistics.cs) | положить в `OsEngine\Custom\Robots\` |
 | [`site/robot-stats.js`](site/robot-stats.js) | виджет для сайта |
+| [`site/robot-stats-theme.css`](site/robot-stats-theme.css) | по желанию: цвета, шрифт и формы виджета под ваш сайт (`--rs-*`, `::part()`) |
 | [`site/robot-stats.d.ts`](site/robot-stats.d.ts) | типы для TypeScript |
 | [`examples/docker-site/`](examples/docker-site) | готовый мини-сайт с приёмником: `docker compose up -d` → http://localhost:3000 |
 | [`site/index.html`](site/index.html) | витрина (GitHub Pages) |

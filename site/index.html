@@ -4,6 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RobotStatistics</title>
+  <link rel="stylesheet" href="robot-stats-theme.css?v=2.6.0">
+  <script>
+    try { var m = localStorage.getItem("rs-page-theme"); if (m === "light" || m === "dark") document.documentElement.setAttribute("data-theme", m); } catch (e) {}
+  </script>
   <meta name="description" content="Статистика роботов OsEngine на вашем сайте: прибыль, просадка, график доходности и все сделки. Один файл в OsEngine, один — на сайте.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,6 +21,12 @@
     @media (prefers-color-scheme: dark) {
       :root:not([data-theme="light"]) { --page: #0a0c10; --ink: #e6e9ef; --soft: #9aa3b2; --line: #232831; --panel: #12151b; --code: #0d1117; --code-ink: #d6dde8; --accent: #6aa0ff; }
     }
+    :root { color-scheme: light; }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } }
+    :root[data-theme="dark"] { color-scheme: dark; }
+    .page-theme { display: inline-flex; padding: 2px; gap: 2px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); }
+    .page-theme button { font: inherit; font-size: 13px; border: 0; background: none; color: var(--soft); border-radius: 999px; padding: 4px 10px; cursor: pointer; min-width: 34px; }
+    .page-theme button.on { background: var(--ink); color: var(--page); }
     :root[data-theme="dark"] { --page: #0a0c10; --ink: #e6e9ef; --soft: #9aa3b2; --line: #232831; --panel: #12151b; --code: #0d1117; --code-ink: #d6dde8; --accent: #6aa0ff; }
 
     * { box-sizing: border-box; }
@@ -71,6 +81,22 @@
     .btn.ghost { border: 1px solid var(--line); color: var(--ink); background: var(--panel); }
 
     footer { padding: 48px 0 40px; color: var(--soft); font-size: 14px; }
+    /* пример «Свои цвета сайта»: переменные --rs-* и ::part() из robot-stats-theme.css */
+    .rs-brand-demo {
+      --rs-accent: #7c3aed; --rs-dark-accent: #a78bfa;
+      --rs-card: #f5f1ff; --rs-dark-card: #231b38;
+      --rs-line: #e7defb; --rs-dark-line: #3a2f57;
+      --rs-bg: #fdfcff; --rs-dark-bg: #16121f;
+      --rs-up: #0f7a55; --rs-dark-up: #4ade80;
+      --rs-radius: 22px; --rs-card-radius: 16px; --rs-control-radius: 999px;
+      --rs-card-border: 1px solid #e7defb; --rs-value-size: 22px;
+      --rs-frame-shadow: 0 10px 30px rgba(124, 58, 237, .12);
+    }
+    .rs-brand-demo [data-rs]::part(heading), .rs-brand-demo #robot-stats::part(heading) { text-transform: uppercase; letter-spacing: .05em; font-size: 12px; }
+    .rs-brand-demo [data-rs]::part(card-label), .rs-brand-demo #robot-stats::part(card-label) { text-transform: uppercase; letter-spacing: .04em; font-size: 11px; }
+    .theme-pick { display: flex; flex-wrap: wrap; gap: 8px; }
+    .theme-pick button { font: inherit; font-size: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 7px 14px; cursor: pointer; }
+    .theme-pick button.on { background: var(--ink); color: var(--page); border-color: var(--ink); }
   </style>
 </head>
 <body>
@@ -79,10 +105,16 @@
     <div class="logo">RobotStatistics <span>для OsEngine</span></div>
     <nav>
       <a href="#live">Демо</a>
+      <a href="#themes">Темы</a>
       <a href="#tester">Тестер</a>
       <a href="#how">Как подключить</a>
       <a href="https://github.com/si0683/robotstatistics">GitHub</a>
     </nav>
+    <div class="page-theme" role="group" aria-label="Тема страницы">
+      <button data-page-theme="auto" title="Как в системе">Авто</button>
+      <button data-page-theme="light" title="Светлая">☀</button>
+      <button data-page-theme="dark" title="Тёмная">☾</button>
+    </div>
   </header>
 
   <!-- ===== Уровень 2: блоки, собранные в свою вёрстку ===== -->
@@ -101,6 +133,21 @@
       <div data-rs="equity" data-robot="moex-trend-1" data-height="380" data-title="Доходность — Трендовый робот MOEX"></div>
     </div>
     <p class="demo-note">Демо-данные: их выдал сам RobotStatistics.cs на синтетических сделках. Числа выше и график — отдельные блоки, вставленные в вёрстку этой страницы.</p>
+  </section>
+
+  <!-- ===== Темы ===== -->
+  <section class="block" id="themes">
+    <h2>Темы — как в OsEngine</h2>
+    <p class="sub">«Свои цвета сайта» — пример, как подогнать виджет под фирменный стиль через файл <code>robot-stats-theme.css</code>: переменные <code>--rs-*</code> и <code>::part()</code>, без правки виджета. Те же четыре темы, что в OsEngine. «Как в OsEngine» берёт тему, которая сейчас выбрана у владельца робота: RobotStatistics публикует её вместе со статистикой, и при смене темы в OsEngine сайт перекрашивается сам.</p>
+    <div class="theme-pick" role="group" aria-label="Тема виджетов">
+      <button data-theme-set="auto" class="on">Авто</button>
+      <button data-theme-set="smartlab">SmartLab</button>
+      <button data-theme-set="midnight">Midnight</button>
+      <button data-theme-set="tiffany">Tiffany</button>
+      <button data-theme-set="bloomberg">Bloomberg</button>
+      <button data-theme-set="osengine">Как в OsEngine</button>
+      <button data-theme-set="brand">Свои цвета сайта</button>
+    </div>
   </section>
 
   <!-- ===== Уровень 1: готовый виджет ===== -->
@@ -184,6 +231,32 @@ Profit Factor:
   </footer>
 </div>
 
-<script src="robot-stats.js?v=2.3.0" data-src="demo/robots.json" data-offline="0" data-refresh="0"></script>
+<script src="robot-stats.js?v=2.6.0" data-src="demo/robots.json" data-offline="0" data-refresh="0"></script>
+<script>
+  // Тема страницы: авто (как в системе) / светлая / тёмная — запоминается в браузере
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem("rs-page-theme"); } catch (e) {}
+    function setPage(mode) {
+      if (mode === "light" || mode === "dark") document.documentElement.setAttribute("data-theme", mode);
+      else document.documentElement.removeAttribute("data-theme");
+      document.querySelectorAll("[data-page-theme]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-page-theme") === (mode || "auto")); });
+      try { localStorage.setItem("rs-page-theme", mode || "auto"); } catch (e) {}
+    }
+    setPage(saved || "auto");
+    document.querySelectorAll("[data-page-theme]").forEach(function (b) {
+      b.addEventListener("click", function () { setPage(b.getAttribute("data-page-theme")); });
+    });
+  })();
+
+  document.querySelectorAll("[data-theme-set]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.querySelectorAll("[data-theme-set]").forEach(function (x) { x.classList.toggle("on", x === b); });
+      var t = b.getAttribute("data-theme-set");
+      document.documentElement.classList.toggle("rs-brand-demo", t === "brand");
+      RobotStats.setTheme(t === "brand" ? "auto" : t);
+    });
+  });
+</script>
 </body>
 </html>

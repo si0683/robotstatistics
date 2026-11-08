@@ -28,7 +28,7 @@
     return;
   }
 
-  var VERSION = "2.3.0";
+  var VERSION = "2.6.0";
   var LWC_URL = "https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js";
 
   // =====================================================================
@@ -208,20 +208,21 @@
     ".rs.v{font:inherit;color:inherit}.rs.v.up{color:var(--up)}.rs.v.down{color:var(--down)}",
     ".rs{--bg:var(--rs-bg,#fff);--card:var(--rs-card,#f5f6f8);--line:var(--rs-line,#e3e6ea);--text:var(--rs-text,#1b1f24);",
     "--muted:var(--rs-muted,#6b7380);--up:var(--rs-up,#12805c);--down:var(--rs-down,#c43b3b);--accent:var(--rs-accent,#2f6fde);",
-    "--shadow:0 12px 32px rgba(15,23,42,.14),0 2px 6px rgba(15,23,42,.08);",
-    "font:14px/1.45 var(--rs-font,system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif);color:var(--text);min-width:0;-webkit-text-size-adjust:100%}",
+    "--shadow:var(--rs-shadow,0 12px 32px rgba(15,23,42,.14),0 2px 6px rgba(15,23,42,.08));",
+    "font:var(--rs-font-size,14px)/1.45 var(--rs-font,system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif);color:var(--text);min-width:0;-webkit-text-size-adjust:100%}",
     ".rs:not(.v){container-type:inline-size;container-name:rs}",
     ".rs.dark{--bg:var(--rs-dark-bg,#14171c);--card:var(--rs-dark-card,#1d2128);--line:var(--rs-dark-line,#2c323b);--text:var(--rs-dark-text,#e8ebef);",
     "--muted:var(--rs-dark-muted,#98a1ad);--up:var(--rs-dark-up,#3cc58f);--down:var(--rs-dark-down,#ff6b6b);--accent:var(--rs-dark-accent,#6aa0ff);",
-    "--shadow:0 14px 36px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.35)}",
-    ".rs.framed{background:var(--bg);border:1px solid var(--line);border-radius:var(--rs-radius,14px);padding:18px}",
+    "--shadow:var(--rs-dark-shadow,0 14px 36px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.35))}",
+    ".rs.painted{background:var(--bg);border-radius:var(--rs-radius,12px);padding:var(--rs-padding,12px)}",
+    ".rs.framed{background:var(--bg);border:var(--rs-border-width,1px) solid var(--line);border-radius:var(--rs-radius,14px);padding:var(--rs-padding,18px);box-shadow:var(--rs-frame-shadow,none)}",
     ".rs *{box-sizing:border-box}",
     "button{font:inherit;color:inherit}",
 
     // шапка
     ".head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}",
     ".title{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 220px}",
-    ".name{font-size:18px;font-weight:650;margin:0;line-height:1.25;overflow-wrap:anywhere}",
+    ".name{font-size:var(--rs-title-size,18px);font-weight:var(--rs-title-weight,650);margin:0;line-height:1.25;overflow-wrap:anywhere}",
     ".status{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}",
     ".dot{width:8px;height:8px;border-radius:50%;background:var(--up);flex:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--up) 22%,transparent)}",
     ".dot.off{background:var(--down);box-shadow:0 0 0 3px color-mix(in srgb,var(--down) 22%,transparent)}",
@@ -232,7 +233,7 @@
     // выпадающий список
     ".dd{position:relative;min-width:0}",
     ".dd-btn{display:flex;align-items:center;gap:8px;width:100%;min-height:38px;padding:6px 10px 6px 12px;background:var(--card);border:1px solid var(--line);",
-    "border-radius:10px;cursor:pointer;text-align:left;transition:border-color .15s,background .15s}",
+    "border-radius:var(--rs-control-radius,10px);cursor:pointer;text-align:left;transition:border-color .15s,background .15s}",
     ".dd-btn:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}",
     ".dd.open .dd-btn{border-color:var(--accent)}",
     ".dd-btn:focus-visible,.dd-opt:focus-visible,.seg button:focus-visible,.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}",
@@ -253,16 +254,16 @@
 
     // карточки
     // карточки: все в ряд на широком блоке, пополам (4+3) на среднем, по 2 на узком — без «сирот» в последней строке
-    ".cards{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:8px}",
+    ".cards{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:var(--rs-gap,8px)}",
     "@container rs (max-width: 819px){.cards{grid-template-columns:repeat(var(--n2,2),minmax(0,1fr))}}",
-    ".card{background:var(--card);border-radius:12px;padding:10px 12px;min-width:0}",
+    ".card{background:var(--card);border-radius:var(--rs-card-radius,12px);padding:10px 12px;min-width:0;border:var(--rs-card-border,0)}",
     ".card .l{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
-    ".card .v{font-size:20px;font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}",
+    ".card .v{font-size:var(--rs-value-size,20px);font-weight:var(--rs-value-weight,650);margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}",
     ".up{color:var(--up)}.down{color:var(--down)}",
 
     // секции и заголовки
     ".sec{margin-top:22px}.sec:first-child{margin-top:0}.sec:empty{display:none}",
-    "h3{font-size:14px;font-weight:650;margin:0 0 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;line-height:1.3}",
+    "h3{font-size:var(--rs-heading-size,14px);font-weight:650;margin:0 0 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;line-height:1.3}",
     ".tools{margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}",
     ".h-title{min-width:0}",
     ".tgl{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted);background:var(--card);border:1px solid var(--line);",
@@ -278,7 +279,7 @@
     ".scroll::-webkit-scrollbar{width:8px}.scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}",
     ".deals thead th{position:sticky;top:0;z-index:1;background:var(--rs-sticky-bg,var(--bg))}",
     ".more .note{margin-right:auto;align-self:center}",
-    ".seg{display:inline-flex;padding:2px;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:9px}",
+    ".seg{display:inline-flex;padding:2px;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:var(--rs-control-radius,9px)}",
     ".seg button{font-size:12px;font-weight:600;background:none;border:0;color:var(--muted);padding:3px 11px;border-radius:7px;cursor:pointer;min-width:34px}",
     ".seg button.on{background:var(--bg);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}",
 
@@ -310,7 +311,7 @@
     ".note{font-size:12px;font-weight:500;color:var(--muted)}",
 
     ".more{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}",
-    ".btn{font-size:13px;color:var(--accent);background:none;border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;text-decoration:none;line-height:1.3}",
+    ".btn{font-size:13px;color:var(--accent);background:none;border:1px solid var(--line);border-radius:var(--rs-control-radius,9px);padding:6px 12px;cursor:pointer;text-decoration:none;line-height:1.3}",
     ".btn:hover{border-color:var(--accent)}",
     ".msg{color:var(--muted);padding:10px 0}",
     ".foot{margin-top:16px;font-size:11px;color:var(--muted)}.foot a{color:inherit}",
@@ -329,14 +330,14 @@
     ".c-abs{grid-column:2;grid-row:2;text-align:right!important;font-size:12px;align-self:start}",
     "}",
     "@container rs (max-width: 520px){",
-    ".rs.framed{padding:14px}",
+    ".rs.framed{padding:calc(var(--rs-padding,18px) - 4px)}",
     ".pick{flex:1 1 100%;justify-content:stretch}",
     ".pick .dd{flex:1 1 150px;min-width:0;max-width:none}",
     ".dd-list{left:0;right:auto;width:100%;min-width:0;max-width:none}",
-    ".name{font-size:17px}",
+    ".name{font-size:calc(var(--rs-title-size,18px) - 1px)}",
     ".cards{grid-template-columns:repeat(2,minmax(0,1fr))}",
     ".cards.odd .card:last-child{grid-column:1/-1}",
-    ".card .v{font-size:18px}",
+    ".card .v{font-size:calc(var(--rs-value-size,20px) - 2px)}",
     "table{font-size:12.5px}",
     ".stats{table-layout:fixed}.stats th:first-child{width:38%}",
     ".stats th,.stats td{padding:7px 3px;white-space:normal;overflow-wrap:break-word;line-height:1.3}",
@@ -669,6 +670,21 @@
 
   var TYPES = ["widget", "status", "cards", "equity", "stats", "open", "deals", "value"];
 
+  // Темы как в OsEngine (Themes/Theme*.xaml): фон StandardBackGroundColor, панели StandardBackGroundColorLight,
+  // текст ControlForegroundWhite, второстепенный TextSecondaryBrush, акцент LabelForegroundBrush.
+  // Зелёный/красный в темах OsEngine не заданы — подобраны под светлую или тёмную основу.
+  var THEMES = {
+    smartlab:  { name: "SmartLab",       dark: true,  colors: { bg: "#111217", card: "#151A1E", text: "#EEEFFF", muted: "#A7A8AA", accent: "#FF7212" } },
+    midnight:  { name: "Midnight",       dark: true,  colors: { bg: "#0E1420", card: "#141C2A", text: "#F0F4FA", muted: "#8A93A6", accent: "#4A7BC8" } },
+    tiffany:   { name: "Tiffany",        dark: false, colors: { bg: "#FDFEFE", card: "#D7EFEC", text: "#0C2421", muted: "#4E6E69", accent: "#0B8F8A" } },
+    bloomberg: { name: "BloombergLight", dark: false, colors: { bg: "#E0E6EE", card: "#D4DCE7", text: "#0C0E11", muted: "#59616B", accent: "#2F6DB3" } }
+  };
+  // id тем в самом OsEngine → палитры выше (для data-theme="osengine", если цвета в данных не пришли)
+  var OSENGINE_IDS = { DarkOrange: "smartlab", Midnight: "midnight", Tiffany: "tiffany", Gray: "bloomberg" };
+  var VAR_NAMES = ["--bg", "--card", "--line", "--text", "--muted", "--up", "--down", "--accent", "--shadow"];
+
+  var BLOCKS = [];
+
   function Block(host, type, opts) {
     this.host = host;
     this.type = type;
@@ -687,21 +703,137 @@
     this.box = document.createElement(type === "value" ? "span" : "div");
     this.box.className = "rs" + (type === "widget" && opts.frame !== "off" ? " framed" : "");
     this.box.setAttribute("lang", "ru"); // переносы слов по правилам русского языка
+    this.box.setAttribute("part", "root");
     this.root.appendChild(style);
     this.root.appendChild(this.box);
     this.applyTheme();
 
     var self = this;
-    if (opts.theme === "auto" && window.matchMedia) {
+    if (window.matchMedia) {
       var mq = window.matchMedia("(prefers-color-scheme: dark)");
-      if (mq.addEventListener) mq.addEventListener("change", function () { self.applyTheme(); self.render(); });
+      if (mq.addEventListener) mq.addEventListener("change", function () {
+        var before = self.themeKey;
+        self.applyTheme();
+        if (self.themeKey !== before) self.repaint();
+      });
     }
+    BLOCKS.push(this);
+    watchPageTheme();
   }
 
+  // Тема блока: auto | light | dark | smartlab | midnight | tiffany | bloomberg | osengine (как сейчас в OsEngine у владельца)
   Block.prototype.applyTheme = function () {
-    var t = this.opts.theme;
-    var dark = t === "dark" || (t === "auto" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    this.box.classList.toggle("dark", !!dark);
+    var t = String(this.opts.theme || "auto").toLowerCase();
+    var palette = null;
+
+    if (t === "osengine") {
+      var th = this.data && this.data.theme;
+      if (th && th.colors) palette = { dark: !!th.dark, colors: th.colors };
+      else if (th && OSENGINE_IDS[th.id]) palette = THEMES[OSENGINE_IDS[th.id]];
+    } else if (THEMES[t]) {
+      palette = THEMES[t];
+    }
+
+    var style = this.box.style;
+    VAR_NAMES.forEach(function (v) { style.removeProperty(v); });
+    this.box.classList.remove("painted");
+
+    if (!palette) {
+      var dark = t === "dark" || ((t === "auto" || t === "osengine") && pageIsDark(this.host));
+      this.box.classList.toggle("dark", !!dark);
+      // в ключ — фактические цвета: сайт поменял --rs-* на лету → блок и график перерисуются
+      var cs = getComputedStyle(this.box);
+      this.themeKey = t + ":" + !!dark + ":" + ["--bg", "--card", "--line", "--text", "--muted", "--up", "--down", "--accent"]
+        .map(function (v) { return cs.getPropertyValue(v).trim(); }).join(",");
+      return;
+    }
+
+    var c = palette.colors;
+    this.box.classList.toggle("dark", !!palette.dark);
+    // блок без рамки в выбранной теме получает её фон — текст читается на любой странице
+    this.box.classList.toggle("painted", this.type !== "value" && !this.box.classList.contains("framed"));
+    style.setProperty("--bg", c.bg);
+    // тёмные темы: карточка чуть светлее фона; светлые: карточка ближе к фону — подписи и цифры читаются (≥ 4,5)
+    style.setProperty("--card", palette.dark ? mixHex(c.text, c.card || c.bg, 0.05) : mixHex(c.card || c.bg, c.bg, 0.5));
+    style.setProperty("--line", mixHex(c.text, c.bg, 0.14));
+    style.setProperty("--text", c.text);
+    style.setProperty("--muted", c.muted || c.text);
+    style.setProperty("--accent", c.accent || (palette.dark ? "#6aa0ff" : "#2f6fde"));
+    // на цветных светлых карточках (Tiffany, Bloomberg) нужен более тёмный зелёный/красный — контраст ≥ 4,5
+    style.setProperty("--up", palette.dark ? "#3cc58f" : "#0e6b47");
+    style.setProperty("--down", palette.dark ? "#ff6b6b" : "#b02a2a");
+    this.themeKey = t + ":" + JSON.stringify(c);
+  };
+
+  // auto: светлая или тёмная — по фактическому фону страницы под блоком, а не по настройке системы.
+  // Иначе на светлом сайте у посетителя с тёмной Windows белый текст оказался бы на белом фоне.
+  function parseRgb(c) {
+    var m = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+%?))?/.exec(c || "");
+    if (!m) return null;
+    var a = m[4] == null ? 1 : (m[4].indexOf("%") > 0 ? parseFloat(m[4]) / 100 : parseFloat(m[4]));
+    return { r: +m[1], g: +m[2], b: +m[3], a: a };
+  }
+
+  function pageIsDark(el) {
+    var node = el;
+    while (node) {
+      if (node.nodeType === 1) {
+        var c = parseRgb(getComputedStyle(node).backgroundColor);
+        if (c && c.a > 0.5) return (0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b) / 255 < 0.5;
+      }
+      node = node.parentNode || (node.host || null); // через границу чужого Shadow DOM
+    }
+    // фон нигде не задан: страница белая по умолчанию браузера, если у неё нет color-scheme: dark
+    var scheme = getComputedStyle(document.documentElement).colorScheme || "";
+    return /^dark/.test(scheme.trim());
+  }
+
+  // Сайт сменил свою тему (класс, атрибут, стиль на html/body) — блоки в auto подстраиваются
+  var themeWatchStarted = false;
+  function watchPageTheme() {
+    if (themeWatchStarted || !window.MutationObserver) return;
+    themeWatchStarted = true;
+    var timer = null;
+    var recheck = function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        BLOCKS.forEach(function (b) {
+          var before = b.themeKey;
+          b.applyTheme();
+          if (b.themeKey !== before) b.repaint();
+        });
+      }, 30);
+    };
+    var mo = new MutationObserver(recheck);
+    var opts = { attributes: true, attributeFilter: ["class", "style", "data-theme", "data-bs-theme", "data-mode"] };
+    mo.observe(document.documentElement, opts);
+    if (document.body) mo.observe(document.body, opts);
+  }
+
+  // Смешать два цвета #RRGGBB: t — доля первого (canvas графика не понимает CSS color-mix)
+  function mixHex(a, b, t) {
+    var pa = /^#?([0-9a-f]{6})$/i.exec(a || ""), pb = /^#?([0-9a-f]{6})$/i.exec(b || "");
+    if (!pa || !pb) return b || a;
+    var x = parseInt(pa[1], 16), y = parseInt(pb[1], 16), out = "#";
+    [16, 8, 0].forEach(function (sh) {
+      var v = Math.round(((x >> sh) & 255) * t + ((y >> sh) & 255) * (1 - t));
+      out += (v < 16 ? "0" : "") + v.toString(16);
+    });
+    return out;
+  }
+
+  Block.prototype.setTheme = function (theme) {
+    this.opts.theme = theme;
+    var before = this.themeKey;
+    this.applyTheme();
+    if (this.themeKey !== before) this.repaint();
+  };
+
+  // Перерисовать с новыми цветами (график берёт цвета из CSS-переменных)
+  Block.prototype.repaint = function () {
+    if (this.chart) { this.chart.destroy(); this.chart = null; }
+    this.skeleton = false;
+    this.render();
   };
 
   Block.prototype.start = function () {
@@ -718,6 +850,11 @@
       self.unsub = subscribe(res.statsUrl, self.opts.refresh, function (data, err) {
         self.error = err;
         if (data) self.data = data;
+        if (String(self.opts.theme).toLowerCase() === "osengine") {
+          var before = self.themeKey;
+          self.applyTheme();
+          if (before && self.themeKey !== before && self.chart) { self.chart.destroy(); self.chart = null; self.skeleton = false; }
+        }
         self.render();
       });
     }).catch(function (err) {
@@ -771,7 +908,7 @@
         (has("stats") ? '<div class="sec s-stats"></div>' : "") +
         (has("open") ? '<div class="sec s-open"></div>' : "") +
         (has("deals") ? '<div class="sec s-deals"></div>' : "") +
-        '<div class="foot"></div>';
+        '<div class="foot" part="footer"></div>';
       this.skeleton = true;
     }
 
@@ -779,7 +916,7 @@
     if (has("status") && !q(".s-head .dd.open")) { q(".s-head").innerHTML = this.htmlHead(); this.bindHead(); }
     if (has("cards")) q(".s-cards").innerHTML = this.htmlCards();
     if (has("equity")) this.renderEquity(q(".s-eq"), true);
-    if (has("stats")) q(".s-stats").innerHTML = '<h3>Статистика</h3>' + this.htmlStats();
+    if (has("stats")) q(".s-stats").innerHTML = '<h3 part="heading">Статистика</h3>' + this.htmlStats();
     if (has("open")) q(".s-open").innerHTML = this.htmlOpen(false);
     if (has("deals")) { q(".s-deals").innerHTML = this.htmlDeals(); this.bindDeals(); }
 
@@ -797,8 +934,8 @@
       ? "тестер" + (d.tester && d.tester.from ? " · " + time(d.tester.from).slice(0, 8) + " — " + time(d.tester.to).slice(0, 8) : "")
       : offline ? "не на связи с " + time(d.generated_at) : "робот в работе";
 
-    var html = '<div class="head"><div class="title"><h2 class="name">' + esc(d.name || d.slug) + "</h2>" +
-      '<span class="status"><span class="dot' + (tester ? " test" : offline ? " off" : "") + '"></span>' + statusText + "</span></div>";
+    var html = '<div class="head" part="header"><div class="title"><h2 class="name" part="title">' + esc(d.name || d.slug) + "</h2>" +
+      '<span class="status" part="status"><span class="dot' + (tester ? " test" : offline ? " off" : "") + '"></span>' + statusText + "</span></div>";
 
     var pick = "";
     if (res.runs && res.runs.length > 1) {
@@ -832,10 +969,10 @@
   function dropdownHtml(name, aria, value, items) {
     var current = items.filter(function (i) { return i.value === value; })[0] || items[0];
     var html = '<div class="dd" data-dd="' + esc(name) + '">' +
-      '<button type="button" class="dd-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="' + esc(aria) + '">' +
+      '<button type="button" class="dd-btn" part="dropdown" aria-haspopup="listbox" aria-expanded="false" aria-label="' + esc(aria) + '">' +
       '<span class="lbl">' + esc(current.label) + "</span>" +
       (current.hint ? '<span class="hint ' + current.hintCls + '">' + esc(current.hint) + "</span>" : "") + CHEVRON + "</button>" +
-      '<ul class="dd-list" role="listbox" aria-label="' + esc(aria) + '" hidden>';
+      '<ul class="dd-list" part="dropdown-list" role="listbox" aria-label="' + esc(aria) + '" hidden>';
     items.forEach(function (i) {
       html += '<li class="dd-opt" role="option" tabindex="-1" data-value="' + esc(i.value) + '" aria-selected="' + (i === current) + '">' +
         '<span class="lbl">' + esc(i.label) + "</span>" +
@@ -926,11 +1063,11 @@
       var v = m.get(d);
       if (v == null || (m.hideZero && !Number(v))) return;
       var label = typeof m.label === "function" ? m.label(o) : m.label;
-      cards.push('<div class="card"><div class="l">' + esc(label) + '</div><div class="v ' + valueClass(v, m.fmt) + '">' + formatValue(v, m.fmt) + "</div></div>");
+      cards.push('<div class="card" part="card"><div class="l" part="card-label">' + esc(label) + '</div><div part="card-value" class="v ' + valueClass(v, m.fmt) + '">' + formatValue(v, m.fmt) + "</div></div>");
     });
     var n = cards.length;
     var n2 = n <= 4 ? n : Math.ceil(n / 2);
-    return '<div class="cards' + (n % 2 ? " odd" : "") + '" style="--n:' + n + ";--n2:" + n2 + '">' + cards.join("") + "</div>";
+    return '<div part="cards" class="cards' + (n % 2 ? " odd" : "") + '" style="--n:' + n + ";--n2:" + n2 + '">' + cards.join("") + "</div>";
   };
 
   Block.prototype.renderValue = function () {
@@ -971,7 +1108,7 @@
   Block.prototype.renderEquity = function (el, inWidget) {
     var self = this, d = this.data, o = this.opts;
     if (!el.querySelector(".eqchart")) {
-      el.innerHTML = '<h3 class="eqhead"></h3><div class="chart eqchart"></div>';
+      el.innerHTML = '<h3 class="eqhead" part="heading"></h3><div class="chart eqchart" part="chart"></div>';
       self.chart = null;
     }
     var head = el.querySelector(".eqhead");
@@ -982,11 +1119,11 @@
     var markers = self.markersShown();
     var tools = "";
     if (o.markersToggle !== "off" && (d.equity || []).length > 1) {
-      tools += '<button type="button" class="tgl' + (markers ? " on" : "") + '" data-act="markers" aria-pressed="' + markers + '" title="Показать или скрыть точки сделок">' +
+      tools += '<button type="button" part="switch" class="tgl' + (markers ? " on" : "") + '" data-act="markers" aria-pressed="' + markers + '" title="Показать или скрыть точки сделок">' +
         '<span class="dots"><i></i><i></i></span>Сделки</button>';
     }
     if (u.hasAbs && u.hasPct) {
-      tools += '<span class="seg"><button type="button" data-unit="abs" class="' + (u.unit === "abs" ? "on" : "") + '">' + esc(o.currency) +
+      tools += '<span class="seg" part="switch"><button type="button" data-unit="abs" class="' + (u.unit === "abs" ? "on" : "") + '">' + esc(o.currency) +
         '</button><button type="button" data-unit="percent" class="' + (u.unit === "percent" ? "on" : "") + '">%</button></span>';
     }
     var title = o.title != null ? o.title : "Доходность";
@@ -1017,7 +1154,7 @@
   Block.prototype.htmlStats = function () {
     var s = this.data.statistics, money = this.data.money_shown !== false;
     if (!s) return '<div class="msg">Нет статистики</div>';
-    var html = '<div class="tw"><table class="stats"><thead><tr><th></th><th>Все</th><th>Long</th><th>Short</th></tr></thead><tbody>';
+    var html = '<div class="tw"><table class="stats" part="table"><thead><tr><th></th><th>Все</th><th>Long</th><th>Short</th></tr></thead><tbody>';
     STAT_ROWS.forEach(function (row) {
       if (row[3] && !money) return;
       if (!s.all || s.all[row[0]] == null) return;
@@ -1034,12 +1171,14 @@
   Block.prototype.htmlOpen = function (standalone) {
     var list = this.data.open_positions;
     if (!list || !list.length) return standalone ? '<div class="msg">Открытых позиций нет</div>' : "";
-    var stops = list.some(function (p) { return p.stop_price != null || p.take_price != null; });
-    var html = "<h3>Открытые позиции</h3><div class=\"tw\"><table class=\"open\"><thead><tr><th>Бумага</th><th>Вход</th><th>Цена входа</th>" +
-      (stops ? "<th>Стоп</th><th>Тейк</th>" : "") + "<th>Результат</th></tr></thead><tbody>";
+    var hasStop = list.some(function (p) { return isNum(p.stop_price); });
+    var hasTake = list.some(function (p) { return isNum(p.take_price); });
+    var html = "<h3 part=\"heading\">Открытые позиции</h3><div class=\"tw\"><table class=\"open\" part=\"table\"><thead><tr><th>Бумага</th><th>Вход</th><th>Цена входа</th>" +
+      (hasStop ? "<th>Стоп</th>" : "") + (hasTake ? "<th>Тейк</th>" : "") + "<th>Результат</th></tr></thead><tbody>";
     list.forEach(function (p) {
       html += "<tr>" + secCell(p) + '<td class="c-tin">' + time(p.open_time) + '</td><td class="c-pin">' + num(p.entry_price, 6) + "</td>" +
-        (stops ? '<td class="c-sl">' + optNum(p.stop_price) + '</td><td class="c-tp">' + optNum(p.take_price) + "</td>" : "") +
+        (hasStop ? '<td class="c-sl">' + optNum(p.stop_price) + "</td>" : "") +
+        (hasTake ? '<td class="c-tp">' + optNum(p.take_price) + "</td>" : "") +
         '<td class="c-pct ' + cls(p.profit_percent) + '">' + signed(p.profit_percent, 2, " %") + "</td>" +
         '<td class="c-mob"><span>' + time(p.open_time) + " · " + num(p.entry_price, 6) + "</span>" + stopLine(p) + "</td></tr>";
     });
@@ -1089,12 +1228,14 @@
     var shown = list.slice(0, lim.n);
 
     var byStop = getPath(d, "summary.closed_by_stop"), byTake = getPath(d, "summary.closed_by_take");
-    var note = isNum(byStop) || isNum(byTake)
-      ? '<span class="note">по стопу ' + num(byStop || 0, 0) + " · по тейку " + num(byTake || 0, 0) + "</span>" : "";
+    var noteParts = [];
+    if (isNum(byStop) && (byStop > 0 || list.some(function (p) { return isNum(p.stop_price); }))) noteParts.push("по стопу " + num(byStop, 0));
+    if (isNum(byTake) && (byTake > 0 || list.some(function (p) { return isNum(p.take_price); }))) noteParts.push("по тейку " + num(byTake, 0));
+    var note = noteParts.length ? '<span class="note">' + noteParts.join(" · ") + "</span>" : "";
 
     var filter = "";
     if (lim.filter && total > DEALS_STEPS[0]) {
-      filter = '<span class="tools"><span class="seg" role="group" aria-label="Сколько сделок показать">';
+      filter = '<span class="tools"><span class="seg" part="switch" role="group" aria-label="Сколько сделок показать">';
       DEALS_STEPS.forEach(function (n, i) {
         if (i > 0 && total <= DEALS_STEPS[i - 1]) return; // нет смысла показывать «100», если сделок 30
         filter += '<button type="button" data-deals="' + n + '" class="' + (n === lim.n ? "on" : "") + '">' + n + "</button>";
@@ -1102,19 +1243,22 @@
       filter += "</span></span>";
     }
 
-    var html = '<h3><span class="h-title">Последние сделки</span>' + note + filter + "</h3>";
+    var html = '<h3 part="heading"><span class="h-title">Последние сделки</span>' + note + filter + "</h3>";
     if (!shown.length) return html + '<div class="msg">Закрытых сделок пока нет</div>';
 
-    var stops = list.some(function (p) { return p.stop_price != null || p.take_price != null; });
+    // нет стопов и тейков у робота — колонки нет вовсе; есть только стопы или только тейки — показываем только их
+    var hasStop = list.some(function (p) { return isNum(p.stop_price); });
+    var hasTake = list.some(function (p) { return isNum(p.take_price); });
+    var stopHead = hasStop && hasTake ? "Стоп / тейк" : hasStop ? "Стоп" : hasTake ? "Тейк" : "";
     var maxH = parseInt(o.maxHeight || 520, 10);
     html += '<div class="tw' + (maxH > 0 ? " scroll" : "") + '"' + (maxH > 0 ? ' style="--mh:' + maxH + 'px"' : "") + ' tabindex="0">' +
-      '<table class="deals"><thead><tr><th>Бумага</th><th>Вход</th><th>Выход</th><th>Цена входа</th><th>Цена выхода</th>' +
-      (stops ? "<th>Стоп / тейк</th>" : "") + "<th>Результат</th>" +
+      '<table class="deals" part="table"><thead><tr><th>Бумага</th><th>Вход</th><th>Выход</th><th>Цена входа</th><th>Цена выхода</th>' +
+      (stopHead ? "<th>" + stopHead + "</th>" : "") + "<th>Результат</th>" +
       (money ? "<th>" + esc(o.currency) + "</th>" : "") + "</tr></thead><tbody>";
     shown.forEach(function (p) {
       html += "<tr>" + secCell(p) + '<td class="c-tin">' + time(p.open_time) + '</td><td class="c-tout">' + time(p.close_time) +
         '</td><td class="c-pin">' + num(p.entry_price, 6) + '</td><td class="c-pout">' + num(p.close_price, 6) + "</td>" +
-        (stops ? '<td class="c-st">' + optNum(p.stop_price) + " / " + optNum(p.take_price) + "</td>" : "") +
+        (stopHead ? '<td class="c-st">' + (hasStop && hasTake ? optNum(p.stop_price) + " / " + optNum(p.take_price) : hasStop ? optNum(p.stop_price) : optNum(p.take_price)) + "</td>" : "") +
         '<td class="c-pct ' + cls(p.profit_percent) + '">' + signed(p.profit_percent, 2, " %") + "</td>" +
         (money ? '<td class="c-abs ' + cls(p.profit_abs) + '">' + signed(p.profit_abs, 2) + "</td>" : "") +
         '<td class="c-mob"><span>' + time(p.open_time) + " → " + time(p.close_time) + "</span><span>" +
@@ -1126,8 +1270,8 @@
     var shownNote = '<span class="note">показано ' + num(shown.length, 0) + " из " + num(total, 0) + "</span>";
     if (o.links !== "off") {
       html += '<div class="more">' + shownNote +
-        '<a class="btn" href="' + esc(resolveUrl(base, "deals.csv")) + '" download>Все сделки — CSV</a>' +
-        '<a class="btn" href="' + esc(resolveUrl(base, "deals.rss")) + '" target="_blank" rel="noopener">RSS</a></div>';
+        '<a part="button" class="btn" href="' + esc(resolveUrl(base, "deals.csv")) + '" download>Все сделки — CSV</a>' +
+        '<a part="button" class="btn" href="' + esc(resolveUrl(base, "deals.rss")) + '" target="_blank" rel="noopener">RSS</a></div>';
     } else {
       html += '<div class="more">' + shownNote + "</div>";
     }
@@ -1193,6 +1337,7 @@
   function mount(el, type, opts) {
     if (el.getAttribute("data-rs-init")) return null;
     var block = new Block(el, TYPES.indexOf(type) >= 0 ? type : "widget", opts);
+    block.applyTheme();
     block.start();
     return block;
   }
@@ -1267,6 +1412,13 @@
 
     /** Форматирование как в виджете: RobotStats.format(1.9876, "number") → "1,99" */
     format: formatValue,
+
+    /** Сменить тему всех блоков: "auto" | "light" | "dark" | "smartlab" | "midnight" | "tiffany" | "bloomberg" | "osengine" */
+    setTheme: function (theme) { BLOCKS.forEach(function (b) { b.setTheme(theme); }); },
+
+    /** Сайт сменил тему не через html/body (например, у своего контейнера) — пересчитать «auto» */
+    refreshTheme: function () { BLOCKS.forEach(function (b) { var k = b.themeKey; b.applyTheme(); if (b.themeKey !== k) b.repaint(); }); },
+    themes: ["auto", "light", "dark"].concat(Object.keys(THEMES)).concat(["osengine"]),
     metrics: Object.keys(METRICS)
   };
 

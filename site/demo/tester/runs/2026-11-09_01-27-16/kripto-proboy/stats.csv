@@ -1,0 +1,14 @@
+﻿metric;all;long;short
+net_profit;414,5990;365,6590;48,9400
+net_profit_percent;4,1460;3,6566;0,4894
+deals_count;70;49;21
+profitable_deals;43;33;10
+losing_deals;27;16;11
+profitable_percent;61,43;67,35;47,62
+profit_factor;2,4173;2,8054;1,5438
+payoff_ratio;1,5178;1,3602;1,6982
+recovery;4,4879;3,9581;1,0004
+sharpe;11,5951;8,7669;-4,2314
+max_drawdown_percent;-0,8855;-0,8895;-0,4884
+average_holding_time;H 20 M 11 S 41;H 22 M 35 S 8;H 17 M 56 S 57
+commission;0;0;0

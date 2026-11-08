@@ -74,6 +74,8 @@ declare namespace RobotStatistics {
     source: "terminal" | "tester";
     generated_at: string;
     money_shown: boolean;
+    /** текущая тема OsEngine у владельца */
+    theme?: OsEngineTheme | null;
     status: { terminal: "online" | "tester"; last_trade_time: LocalTime | null };
     tester?: { run: string; from?: LocalTime; to?: LocalTime; set?: string };
     summary: {
@@ -94,6 +96,13 @@ declare namespace RobotStatistics {
     open_positions?: Deal[];
     /** последние N закрытых сделок, новые первыми */
     last_deals: Deal[];
+  }
+
+  interface OsEngineTheme {
+    id: string;
+    name: string;
+    dark: boolean;
+    colors: { bg: string; card: string; text: string; muted: string; accent: string; line: string };
   }
 
   /** <robot>/deals.json */
@@ -153,7 +162,8 @@ declare namespace RobotStatistics {
     robot?: string;
     /** id прогона из runs.json (по умолчанию — последний) */
     run?: string;
-    theme?: "auto" | "light" | "dark";
+    /** osengine — как сейчас в OsEngine у владельца (поле theme в данных) */
+    theme?: "auto" | "light" | "dark" | "smartlab" | "midnight" | "tiffany" | "bloomberg" | "osengine";
     currency?: string;
     /** секунды; 0 — не обновлять */
     refresh?: number;
@@ -215,6 +225,8 @@ declare namespace RobotStatistics {
     equityChart(el: HTMLElement, data: Stats, opts?: EquityChartOptions): EquityChart;
     format(value: unknown, fmt: BlockOptions["format"]): string;
     metrics: Metric[];
+    setTheme(theme: NonNullable<BlockOptions["theme"]>): void;
+    themes: string[];
   }
 }
 
