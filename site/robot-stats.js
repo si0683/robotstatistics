@@ -28,7 +28,7 @@
     return;
   }
 
-  var VERSION = "2.6.0";
+  var VERSION = "2.6.1";
   var LWC_URL = "https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js";
 
   // =====================================================================
@@ -767,11 +767,27 @@
 
   // auto: светлая или тёмная — по фактическому фону страницы под блоком, а не по настройке системы.
   // Иначе на светлом сайте у посетителя с тёмной Windows белый текст оказался бы на белом фоне.
+  // Любой цвет CSS (rgb, hex, hsl, oklch у Tailwind 4 / shadcn, lab, color-mix…) → {r,g,b,a}: рисуем точку на canvas
+  var colorCanvas = null;
   function parseRgb(c) {
-    var m = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+%?))?/.exec(c || "");
-    if (!m) return null;
-    var a = m[4] == null ? 1 : (m[4].indexOf("%") > 0 ? parseFloat(m[4]) / 100 : parseFloat(m[4]));
-    return { r: +m[1], g: +m[2], b: +m[3], a: a };
+    if (!c || c === "transparent") return { r: 0, g: 0, b: 0, a: 0 };
+    var m = /^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+%?))?\s*\)$/.exec(c);
+    if (m) {
+      var alpha = m[4] == null ? 1 : (m[4].indexOf("%") > 0 ? parseFloat(m[4]) / 100 : parseFloat(m[4]));
+      return { r: +m[1], g: +m[2], b: +m[3], a: alpha };
+    }
+    try {
+      if (!colorCanvas) { colorCanvas = document.createElement("canvas"); colorCanvas.width = colorCanvas.height = 1; }
+      var ctx = colorCanvas.getContext("2d", { willReadFrequently: true });
+      ctx.clearRect(0, 0, 1, 1);
+      ctx.fillStyle = "rgba(0,0,0,0)";
+      ctx.fillStyle = c;
+      ctx.fillRect(0, 0, 1, 1);
+      var px = ctx.getImageData(0, 0, 1, 1).data;
+      return { r: px[0], g: px[1], b: px[2], a: px[3] / 255 };
+    } catch (e) {
+      return null;
+    }
   }
 
   function pageIsDark(el) {

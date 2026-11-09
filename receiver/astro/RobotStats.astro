@@ -1,0 +1,69 @@
+---
+/*
+ * RobotStatistics — компонент для Astro (LightWebsiteUi и любой Astro-сайт).
+ *
+ * Куда положить:  src/components/RobotStats.astro
+ * Виджет:         public/robot-stats-widget/robot-stats.js (+ robot-stats-theme.css по желанию)
+ *
+ * Пример:
+ *   <RobotStats />                                              — все роботы, выбор сверху
+ *   <RobotStats robot="moex-trend-1" parts="cards,equity" />    — один робот, только карточки и график
+ *   <RobotStats src="/robot-stats/tester/runs.json" />          — прогоны тестера
+ *   <RobotStats type="equity" robot="moex-trend-1" height={420} />  — только график
+ */
+interface Props {
+  /** Откуда брать данные: robots.json, stats.json робота или tester/runs.json */
+  src?: string
+  /** widget | status | cards | equity | stats | open | deals | value */
+  type?: string
+  robot?: string
+  run?: string
+  /** auto | light | dark | smartlab | midnight | tiffany | bloomberg | osengine */
+  theme?: string
+  parts?: string
+  items?: string
+  field?: string
+  currency?: string
+  height?: number
+  limit?: number
+  /** Подключить robot-stats-theme.css (свои цвета сайта) */
+  themeCss?: boolean
+  class?: string
+}
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "")
+const {
+  src = `${base}/robot-stats/robots.json`,
+  type = "widget",
+  robot,
+  run,
+  theme,
+  parts,
+  items,
+  field,
+  currency,
+  height,
+  limit,
+  themeCss = false,
+  class: className,
+} = Astro.props
+
+const Tag = type === "value" ? "span" : "div"
+---
+
+{themeCss && <link rel="stylesheet" href={`${base}/robot-stats-widget/robot-stats-theme.css`} />}
+<Tag
+  class={className}
+  data-rs={type}
+  data-src={src}
+  data-robot={robot}
+  data-run={run}
+  data-theme={theme}
+  data-parts={parts}
+  data-items={items}
+  data-field={field}
+  data-currency={currency}
+  data-height={height}
+  data-limit={limit}
+/>
+<script is:inline src={`${base}/robot-stats-widget/robot-stats.js`} defer></script>

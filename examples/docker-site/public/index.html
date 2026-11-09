@@ -49,8 +49,8 @@
     const ok = await fetch(src + "?t=" + Date.now(), { cache: "no-store" }).then(r => r.ok).catch(() => false);
     if (!ok) {
       area.innerHTML = '<div class="empty">Данных пока нет. ' + (src.includes("tester")
-        ? "Добавьте в тестер OsEngine робота <b>RobotStatistics</b>, укажите адрес <code>" + location.origin + "/api/robot-stats/ingest</code> и запустите тест."
-        : "Добавьте в терминал OsEngine робота <b>RobotStatistics</b> и укажите адрес <code>" + location.origin + "/api/robot-stats/ingest</code>.") + "</div>";
+        ? "Добавьте в тестер OsEngine робота <b>RobotStatistics</b>, укажите адрес <code>" + location.origin + "/robot-stats/ingest</code> и запустите тест."
+        : "Добавьте в терминал OsEngine робота <b>RobotStatistics</b> и укажите адрес <code>" + location.origin + "/robot-stats/ingest</code>.") + "</div>";
       return;
     }
 

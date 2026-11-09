@@ -2,14 +2,14 @@
 #
 # Запуск (из этой папки):   docker compose up -d
 # Открыть:                  http://localhost:3000
-# Адрес для OsEngine:       http://localhost:3000/api/robot-stats/ingest
+# Адрес для OsEngine:       http://localhost:3000/robot-stats/ingest
 # Остановить:               docker compose down
 
 services:
   site:
     image: node:22-alpine
     working_dir: /app
-    command: ["node", "server.js"]
+    command: ["node", "server.mjs"]
     ports:
       - "3000:3000"
     environment:
@@ -19,8 +19,10 @@ services:
       # Ключ. Если раскомментировать — тот же ключ впишите в OsEngine в «Ключ для webhook».
       # INGEST_KEY: "придумайте-длинный-ключ"
     volumes:
-      - ./server.js:/app/server.js:ro
+      - ./server.mjs:/app/server.mjs:ro
+      - ../../receiver/robot-stats-receiver.mjs:/app/robot-stats-receiver.mjs:ro
       - ./public:/app/public:ro
       - ../../site/robot-stats.js:/app/lib/robot-stats.js:ro
+      - ../../site/robot-stats-theme.css:/app/lib/robot-stats-theme.css:ro
       - ./data:/app/data            # сюда складываются данные из OsEngine (видны и в Windows)
     restart: unless-stopped

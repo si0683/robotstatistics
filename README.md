@@ -26,15 +26,15 @@
 | [`site/robot-stats.js`](site/robot-stats.js) | виджет для сайта |
 | [`site/robot-stats-theme.css`](site/robot-stats-theme.css) | по желанию: цвета, шрифт и формы виджета под ваш сайт (`--rs-*`, `::part()`) |
 | [`site/robot-stats.d.ts`](site/robot-stats.d.ts) | типы для TypeScript |
+| [`receiver/`](receiver) | **приёмник для вашего сайта** — OsEngine (хоть на чужом сервере) сам отправляет туда статистику: Astro / LightWebsiteUi, Next.js / Payload, Express, PHP (WordPress, Битрикс…), отдельный сервер |
 | [`examples/docker-site/`](examples/docker-site) | готовый мини-сайт с приёмником: `docker compose up -d` → http://localhost:3000 |
 | [`site/index.html`](site/index.html) | витрина (GitHub Pages) |
 
 ## Документация
 
-- **[Инструкция для новичков: куда что положить](TechnicalSpecification/Инструкция%20—%20Статистика%20робота%20на%20своём%20сайте.md)**
-- [Техническое задание](TechnicalSpecification/ТЗ%20—%20Трансляция%20статистики%20робота.md)
-
-Папку `TechnicalSpecification` можно открыть в Obsidian.
+- **[Приёмник для своего сайта](receiver/README.md)** — OsEngine (у вас или у знакомого на сервере) сам отправляет статистику на ваш сайт: Astro / LightWebsiteUi, Next.js / Payload, Express, PHP, отдельный сервер. Там же — что сделать владельцу сервера.
+- Оформление виджета под сайт — комментарии в [`site/robot-stats-theme.css`](site/robot-stats-theme.css).
+- Все атрибуты и API виджета — в начале [`site/robot-stats.js`](site/robot-stats.js) и в [`site/robot-stats.d.ts`](site/robot-stats.d.ts).
 
 ## Быстрый старт с тестером и Docker
 
@@ -43,7 +43,7 @@ cd examples/docker-site
 docker compose up -d
 ```
 
-В OsEngine: Тестер → «Добавить бота» → «Скрипт» → RobotStatistics → «Параметры» → «Выбрать роботов…». В поле «Отправлять на адрес (webhook)» укажите `http://localhost:3000/api/robot-stats/ingest` и запустите тест. Результат появится на http://localhost:3000.
+В OsEngine: Тестер → «Добавить бота» → «Скрипт» → RobotStatistics → «Параметры» → «Выбрать роботов…». В поле «Отправлять на адрес (webhook)» укажите `http://localhost:3000/robot-stats/ingest` и запустите тест. Результат появится на http://localhost:3000.
 
 ---
 
