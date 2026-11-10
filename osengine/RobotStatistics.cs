@@ -78,7 +78,6 @@ namespace OsEngine.Robots
             _showVolume = CreateParameter("Показывать объём позиций", false, "Приватность");
             _openPositionsMode = CreateParameter("Открытые позиции", "Сразу", new[] { "Сразу", "Только после закрытия", "Не показывать" }, "Приватность");
             _showStops = CreateParameter("Показывать стоп и тейк", true, "Приватность");
-            _showSignals = CreateParameter("Показывать сигналы робота", true, "Приватность");
 
             _chooseButton.UserClickOnButtonEvent += ChooseButton_UserClickOnButtonEvent;
             _publishNowButton.UserClickOnButtonEvent += PublishNowButton_UserClickOnButtonEvent;
@@ -144,7 +143,6 @@ namespace OsEngine.Robots
         private StrategyParameterBool _showVolume;
         private StrategyParameterString _openPositionsMode;
         private StrategyParameterBool _showStops;
-        private StrategyParameterBool _showSignals;
 
         private bool IsOn
         {
@@ -1083,12 +1081,6 @@ namespace OsEngine.Robots
             summary["deals_count"] = closed.Count;
             summary["open_count"] = open.Count;
 
-            if (_showStops.ValueBool && all.Any(p => p.StopOrderPrice > 0 || p.ProfitOrderPrice > 0))
-            {
-                summary["closed_by_stop"] = closed.Count(p => GetExitBy(p) == "stop");
-                summary["closed_by_take"] = closed.Count(p => GetExitBy(p) == "take");
-            }
-
             summary["period_from"] = all.Count > 0 ? FormatTime(all[0].TimeOpen) : null;
             summary["period_to"] = closed.Count > 0 ? FormatTime(closed.Max(p => p.TimeClose)) : null;
             doc["summary"] = summary;
@@ -1170,29 +1162,6 @@ namespace OsEngine.Robots
                 {
                     deal["take_price"] = pos.ProfitOrderPrice;
                 }
-
-                if (isClosed)
-                {
-                    string exitBy = GetExitBy(pos);
-
-                    if (exitBy != null)
-                    {
-                        deal["exit_by"] = exitBy;
-                    }
-                }
-            }
-
-            if (_showSignals.ValueBool)
-            {
-                if (!string.IsNullOrWhiteSpace(pos.SignalTypeOpen))
-                {
-                    deal["signal_open"] = pos.SignalTypeOpen.Trim();
-                }
-
-                if (isClosed && !string.IsNullOrWhiteSpace(pos.SignalTypeClose))
-                {
-                    deal["signal_close"] = pos.SignalTypeClose.Trim();
-                }
             }
 
             if (_showMoney.ValueBool)
@@ -1202,46 +1171,6 @@ namespace OsEngine.Robots
             }
 
             return deal;
-        }
-
-        // Причина выхода. Отдельного флага в OsEngine нет: сначала смотрим подпись сигнала закрытия
-        // (BotTabSimple при срабатывании стопа пишет туда SignalTypeStop, если робот её задал),
-        // иначе — близость цены закрытия к уровню стопа/тейка (3 шага цены или 0,3 %, что больше).
-        private static string GetExitBy(Position pos)
-        {
-            if (pos.State != PositionStateType.Done || pos.ClosePrice <= 0)
-            {
-                return null;
-            }
-
-            if (!string.IsNullOrEmpty(pos.SignalTypeClose))
-            {
-                if (pos.SignalTypeClose == pos.SignalTypeStop)
-                {
-                    return "stop";
-                }
-
-                if (pos.SignalTypeClose == pos.SignalTypeProfit)
-                {
-                    return "take";
-                }
-            }
-
-            decimal tolerance = Math.Max(pos.PriceStep * 3, pos.ClosePrice * 0.003m);
-            decimal toStop = pos.StopOrderPrice > 0 ? Math.Abs(pos.ClosePrice - pos.StopOrderPrice) : decimal.MaxValue;
-            decimal toTake = pos.ProfitOrderPrice > 0 ? Math.Abs(pos.ClosePrice - pos.ProfitOrderPrice) : decimal.MaxValue;
-
-            if (toStop <= tolerance && toStop <= toTake)
-            {
-                return "stop";
-            }
-
-            if (toTake <= tolerance)
-            {
-                return "take";
-            }
-
-            return null;
         }
 
         private Dictionary<string, object> BuildStatistics(List<Position> all)
@@ -1400,19 +1329,11 @@ namespace OsEngine.Robots
             }
 
             bool stops = _showStops.ValueBool;
-            bool signals = _showSignals.ValueBool;
 
             if (stops)
             {
                 header.Add("stop_price");
                 header.Add("take_price");
-                header.Add("exit_by");
-            }
-
-            if (signals)
-            {
-                header.Add("signal_open");
-                header.Add("signal_close");
             }
 
             StringBuilder csv = new StringBuilder();
@@ -1451,13 +1372,6 @@ namespace OsEngine.Robots
                 {
                     row.Add(pos.StopOrderPrice > 0 ? CsvNumber(pos.StopOrderPrice, sep) : "");
                     row.Add(pos.ProfitOrderPrice > 0 ? CsvNumber(pos.ProfitOrderPrice, sep) : "");
-                    row.Add(GetExitBy(pos) ?? "");
-                }
-
-                if (signals)
-                {
-                    row.Add(CsvText((pos.SignalTypeOpen ?? "").Trim(), sep));
-                    row.Add(CsvText((pos.SignalTypeClose ?? "").Trim(), sep));
                 }
 
                 csv.Append(string.Join(sep, row)).Append("\r\n");
@@ -1527,14 +1441,6 @@ namespace OsEngine.Robots
                     if (pos.ProfitOrderPrice > 0)
                     {
                         description += " Тейк " + pos.ProfitOrderPrice.ToString(CultureInfo.InvariantCulture) + ".";
-                    }
-
-                    string exitBy = GetExitBy(pos);
-
-                    if (exitBy != null)
-                    {
-                        description += exitBy == "stop" ? " Закрыта по стопу." : " Закрыта по тейку.";
-                        title += exitBy == "stop" ? " · стоп" : " · тейк";
                     }
                 }
 

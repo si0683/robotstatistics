@@ -304,9 +304,6 @@
     ".side{display:inline-block;margin-left:6px;padding:0 6px;border-radius:5px;font-size:11px;font-weight:600;line-height:18px;vertical-align:1px}",
     ".side.long{color:var(--up);background:color-mix(in srgb,var(--up) 14%,transparent)}",
     ".side.short{color:var(--down);background:color-mix(in srgb,var(--down) 14%,transparent)}",
-    ".exit{display:inline-block;margin-left:4px;padding:0 6px;border-radius:5px;font-size:11px;font-weight:600;line-height:18px;vertical-align:1px;color:var(--muted);border:1px solid var(--line)}",
-    ".exit.stop{color:var(--down);border-color:color-mix(in srgb,var(--down) 45%,transparent)}",
-    ".exit.take{color:var(--up);border-color:color-mix(in srgb,var(--up) 45%,transparent)}",
     ".c-st{color:var(--muted)}",
     ".note{font-size:12px;font-weight:500;color:var(--muted)}",
 
@@ -363,9 +360,7 @@
     recovery:       { label: "Восстановление", get: function (d) { return getPath(d, "statistics.all.recovery"); }, fmt: "number" },
     payoff:         { label: "Payoff", get: function (d) { return getPath(d, "statistics.all.payoff_ratio"); }, fmt: "number" },
     commission:     { label: function (o) { return "Комиссия, " + o.currency; }, get: function (d) { return getPath(d, "statistics.all.commission"); }, fmt: "plainmoney" },
-    holding:        { label: "Время в сделке", get: function (d) { return getPath(d, "statistics.all.average_holding_time"); }, fmt: "duration" },
-    by_stop:        { label: "Закрыто по стопу", get: function (d) { return getPath(d, "summary.closed_by_stop"); }, fmt: "int" },
-    by_take:        { label: "Закрыто по тейку", get: function (d) { return getPath(d, "summary.closed_by_take"); }, fmt: "int" }
+    holding:        { label: "Время в сделке", get: function (d) { return getPath(d, "statistics.all.average_holding_time"); }, fmt: "duration" }
   };
 
   var DEFAULT_CARDS = "profit,profit_percent,deals,winrate,pf,drawdown,sharpe";
@@ -1203,12 +1198,8 @@
 
   function secCell(p) {
     var long = p.direction === "Long";
-    var tip = [];
-    if (p.signal_open) tip.push("Вход: " + p.signal_open);
-    if (p.signal_close) tip.push("Выход: " + p.signal_close);
-    var exit = p.exit_by === "stop" ? '<span class="exit stop">стоп</span>' : p.exit_by === "take" ? '<span class="exit take">тейк</span>' : "";
-    return '<td class="c-sec"' + (tip.length ? ' title="' + esc(tip.join(" · ")) + '"' : "") + '><span class="sec-name">' + esc(p.security) +
-      '</span><span class="side ' + (long ? "long" : "short") + '">' + (long ? "Long" : "Short") + "</span>" + exit + "</td>";
+    return '<td class="c-sec"><span class="sec-name">' + esc(p.security) +
+      '</span><span class="side ' + (long ? "long" : "short") + '">' + (long ? "Long" : "Short") + "</span></td>";
   }
 
   function optNum(v) { return isNum(v) ? num(v, 6) : "—"; }
@@ -1243,11 +1234,7 @@
     var list = source.slice().sort(function (a, b) { return String(b.close_time).localeCompare(String(a.close_time)); });
     var shown = list.slice(0, lim.n);
 
-    var byStop = getPath(d, "summary.closed_by_stop"), byTake = getPath(d, "summary.closed_by_take");
-    var noteParts = [];
-    if (isNum(byStop) && (byStop > 0 || list.some(function (p) { return isNum(p.stop_price); }))) noteParts.push("по стопу " + num(byStop, 0));
-    if (isNum(byTake) && (byTake > 0 || list.some(function (p) { return isNum(p.take_price); }))) noteParts.push("по тейку " + num(byTake, 0));
-    var note = noteParts.length ? '<span class="note">' + noteParts.join(" · ") + "</span>" : "";
+    var note = "";
 
     var filter = "";
     if (lim.filter && total > DEALS_STEPS[0]) {

@@ -30,11 +30,6 @@ declare namespace RobotStatistics {
     stop_price?: number;
     /** уровень тейка — как stop_price */
     take_price?: number;
-    /** чем закрыта сделка: по подписи сигнала, иначе по близости цены закрытия к уровню (3 шага цены или 0,3 %) */
-    exit_by?: "stop" | "take";
-    /** подписи сигналов робота (SignalTypeOpen / SignalTypeClose). Только при «Показывать сигналы робота» */
-    signal_open?: string;
-    signal_close?: string;
     /** только если включено «Показывать суммы в деньгах» */
     profit_abs?: number;
     commission?: number;
@@ -83,9 +78,6 @@ declare namespace RobotStatistics {
       net_profit_percent: number;
       deals_count: number;
       open_count: number;
-      /** закрыто по стопу / тейку — только при «Показывать стоп и тейк» */
-      closed_by_stop?: number;
-      closed_by_take?: number;
       period_from: LocalTime | null;
       period_to: LocalTime | null;
     };
@@ -153,7 +145,7 @@ declare namespace RobotStatistics {
 
   type Metric =
     | "profit" | "profit_percent" | "deals" | "open" | "winrate" | "pf"
-    | "drawdown" | "sharpe" | "recovery" | "payoff" | "commission" | "holding" | "by_stop" | "by_take";
+    | "drawdown" | "sharpe" | "recovery" | "payoff" | "commission" | "holding";
 
   interface BlockOptions {
     /** stats.json робота, robots.json или tester/runs.json */
