@@ -12,6 +12,7 @@ using OsEngine.Journal.Internal;
 using OsEngine.Language;
 using OsEngine.Logging;
 using OsEngine.Market;
+using OsEngine.Market.Connectors;
 using OsEngine.Market.Servers;
 using OsEngine.Market.Servers.Tester;
 using OsEngine.OsTrader;
@@ -508,11 +509,21 @@ namespace OsEngine.Robots
             }
 
             List<Dictionary<string, object>> index = new List<Dictionary<string, object>>();
+            int selectedBots = GetSelectedBots().Count;
             Dictionary<string, byte[]> runFiles = BuildFiles("tester", testerInfo, index);
 
             if (index.Count == 0)
             {
-                SendNewLogMessage("RobotStatistics: прогон тестера закончен, но выбранных роботов нет — нажмите «Выбрать роботов…»", LogMessageType.Error);
+                // index пуст и когда роботов не выбрали, и когда отчёт по ним не собрался (ошибка выше)
+                if (selectedBots == 0)
+                {
+                    SendNewLogMessage("RobotStatistics: прогон тестера закончен, но выбранных роботов нет — нажмите «Выбрать роботов…»", LogMessageType.Error);
+                }
+                else
+                {
+                    SendNewLogMessage("RobotStatistics: прогон тестера: отчёт не собран ни по одному из выбранных роботов (" + selectedBots + ") — см. ошибки выше", LogMessageType.Error);
+                }
+
                 return;
             }
 
@@ -737,7 +748,7 @@ namespace OsEngine.Robots
 
                     if (_formatFullJson.ValueBool)
                     {
-                        files[slug + "/full.json"] = ToJson(BuildFullDocument(slug, publicName, bot, generatedAt, source, testerInfo, all, closed, open));
+                        files[slug + "/full.json"] = BuildFullJsonFile(slug, publicName, bot, generatedAt, source, testerInfo, all, closed, open);
                     }
 
                     Dictionary<string, object> indexItem = new Dictionary<string, object>();
@@ -758,7 +769,7 @@ namespace OsEngine.Robots
                 }
                 catch (Exception error)
                 {
-                    SendNewLogMessage("RobotStatistics: робот " + bot.NameStrategyUniq + ": " + error.Message, LogMessageType.Error);
+                    SendNewLogMessage("RobotStatistics: робот " + bot.NameStrategyUniq + ": " + error, LogMessageType.Error);
                 }
             }
 
@@ -1024,7 +1035,16 @@ namespace OsEngine.Robots
         {
             List<Position> result = new List<Position>();
 
-            List<Journal.Journal> journals = bot.GetJournals();
+            List<Journal.Journal> journals = null;
+
+            try
+            {
+                journals = bot != null ? bot.GetJournals() : null;
+            }
+            catch (Exception error)
+            {
+                SendNewLogMessage("RobotStatistics: журналы робота не прочитаны: " + error, LogMessageType.Error);
+            }
 
             if (journals == null)
             {
@@ -1033,26 +1053,33 @@ namespace OsEngine.Robots
 
             for (int i = 0; i < journals.Count; i++)
             {
-                if (journals[i] == null)
+                try
                 {
-                    continue;
-                }
-
-                List<Position> positions = journals[i].AllPosition;
-
-                if (positions == null)
-                {
-                    continue;
-                }
-
-                Position[] copy = positions.ToArray(); // список меняет торговый поток — работаем с копией
-
-                for (int j = 0; j < copy.Length; j++)
-                {
-                    if (copy[j] != null && copy[j].State != PositionStateType.OpeningFail)
+                    if (journals[i] == null)
                     {
-                        result.Add(copy[j]);
+                        continue;
                     }
+
+                    List<Position> positions = journals[i].AllPosition;
+
+                    if (positions == null)
+                    {
+                        continue;
+                    }
+
+                    Position[] copy = positions.ToArray(); // список меняет торговый поток — работаем с копией
+
+                    for (int j = 0; j < copy.Length; j++)
+                    {
+                        if (copy[j] != null && copy[j].State != PositionStateType.OpeningFail)
+                        {
+                            result.Add(copy[j]);
+                        }
+                    }
+                }
+                catch (Exception error)
+                {
+                    SendNewLogMessage("RobotStatistics: журнал " + i + " не прочитан: " + error, LogMessageType.Error);
                 }
             }
 
@@ -1235,10 +1262,17 @@ namespace OsEngine.Robots
             List<object> points = new List<object>();
             decimal cumulativeAbs = 0;
             decimal cumulativePercent = 0;
+            List<Position> source = deals ?? new List<Position>();
 
-            for (int i = 0; i < deals.Count; i++)
+            for (int i = 0; i < source.Count; i++)
             {
-                Position pos = deals[i];
+                Position pos = source[i];
+
+                if (pos == null)
+                {
+                    continue;
+                }
+
                 decimal mult = pos.MultToJournal / 100;
                 cumulativeAbs += pos.ProfitPortfolioAbs * mult;
                 cumulativePercent += pos.ProfitPortfolioPercent * mult;
@@ -1264,10 +1298,17 @@ namespace OsEngine.Robots
             List<object> points = new List<object>();
             decimal cumulative = 0;
             decimal maxEquity = 0;
+            List<Position> source = deals ?? new List<Position>();
 
-            for (int i = 0; i < deals.Count; i++)
+            for (int i = 0; i < source.Count; i++)
             {
-                Position pos = deals[i];
+                Position pos = source[i];
+
+                if (pos == null)
+                {
+                    continue;
+                }
+
                 cumulative += pos.ProfitPortfolioAbs * (pos.MultToJournal / 100);
 
                 if (cumulative > maxEquity)
@@ -1312,15 +1353,128 @@ namespace OsEngine.Robots
         // Полный отчёт для анализа (full.json, schema rs-full/1).
         // На него НЕ действует приватность: суммы, объёмы и открытые позиции пишутся всегда.
 
+        // Отчёт собирается по разделам. В тестере почти всё окружение может быть null —
+        // портфель, бумага, ТФ, свечи, ордера, параметры. Поэтому:
+        //  * каждый раздел строится в своём try/catch и при ошибке получает {"error": "<тип>: <сообщение>"};
+        //  * каждая позиция — тоже: ошибка одной позиции не убирает остальные;
+        //  * помощники не разыменовывают то, что может оказаться null.
         private Dictionary<string, object> BuildFullDocument(string slug, string publicName, BotPanel bot, string generatedAt,
             string source, Dictionary<string, object> testerInfo, List<Position> all, List<Position> closed, List<Position> open)
         {
+            Dictionary<string, object> doc = CreateFullDocumentShell(slug, publicName, generatedAt, source);
+            List<Position> positions = all ?? new List<Position>();
+            List<Position> closedPositions = closed ?? new List<Position>();
+            List<Position> openPositions = open ?? new List<Position>();
+
+            List<BotTabSimple> simpleTabs = new List<BotTabSimple>();
+            List<object> tabs = new List<object>();
+
+            try
+            {
+                CollectTabs(bot, tabs, simpleTabs); // каждая вкладка внутри — в своём try/catch
+            }
+            catch (Exception error)
+            {
+                SendNewLogMessage("RobotStatistics: full.json, вкладки: " + error, LogMessageType.Error);
+            }
+
+            SetFullSection(doc, "run", () => BuildRunSection(source, testerInfo));
+            SetFullSection(doc, "robot", () => BuildRobotSection(bot, publicName, tabs));
+
+            // security + securities: в тестере бумаги может не быть совсем
+            try
+            {
+                List<object> securities = BuildSecuritiesList(simpleTabs);
+                doc["securities"] = securities;
+                doc["security"] = securities.Count > 0 ? securities[0] : null;
+            }
+            catch (Exception error)
+            {
+                Dictionary<string, object> section = ErrorSection(error);
+                doc["security"] = section;
+                doc["securities"] = new List<object> { section };
+                LogFullSectionError("security", error);
+            }
+
+            SetFullSection(doc, "period", () => BuildCandlePeriod(simpleTabs));
+            SetFullSection(doc, "counts", () => BuildCounts(positions, closedPositions, openPositions));
+            SetFullSection(doc, "statistics_full", () => BuildFullStatistics(positions));
+            SetFullSection(doc, "positions", () => BuildFullPositions(positions, simpleTabs));
+
+            List<Position> byPointTime = new List<Position>();
+
+            try
+            {
+                byPointTime = positions.FindAll(p => p != null).OrderBy(p => GetPointTime(p)).ToList();
+            }
+            catch (Exception error)
+            {
+                LogFullSectionError("equity", error);
+            }
+
+            SetFullSection(doc, "equity", () => BuildEquity(byPointTime, true));
+            SetFullSection(doc, "drawdown", () => BuildFullDrawdown(byPointTime));
+            SetFullSection(doc, "by_period", () => BuildByPeriod(closedPositions));
+
+            return doc;
+        }
+
+        // Каркас документа: пишется всегда, даже если все разделы упали
+        private static Dictionary<string, object> CreateFullDocumentShell(string slug, string publicName, string generatedAt, string source)
+        {
             Dictionary<string, object> doc = new Dictionary<string, object>();
             doc["schema"] = "rs-full/1";
-            doc["slug"] = slug;
-            doc["name"] = publicName;
-            doc["generated_at"] = generatedAt;
+            doc["slug"] = slug ?? "";
+            doc["name"] = publicName ?? "";
+            doc["generated_at"] = generatedAt ?? "";
+            return doc;
+        }
 
+        // Раздел отчёта: ошибка не отменяет остальные разделы — пишем {"error": "<тип>: <сообщение>"}
+        private void SetFullSection(Dictionary<string, object> doc, string key, Func<object> build)
+        {
+            try
+            {
+                doc[key] = build();
+            }
+            catch (Exception error)
+            {
+                doc[key] = ErrorSection(error);
+                LogFullSectionError(key, error);
+            }
+        }
+
+        private static Dictionary<string, object> ErrorSection(Exception error)
+        {
+            Dictionary<string, object> section = new Dictionary<string, object>();
+            section["error"] = ErrorText(error);
+            return section;
+        }
+
+        private static string ErrorText(Exception error)
+        {
+            if (error == null)
+            {
+                return "Unknown: неизвестная ошибка";
+            }
+
+            string message = error.Message ?? "";
+
+            if (message == "")
+            {
+                message = "без сообщения";
+            }
+
+            return error.GetType().Name + ": " + message;
+        }
+
+        private void LogFullSectionError(string key, Exception error)
+        {
+            SendNewLogMessage("RobotStatistics: full.json, раздел " + key + ": " + error, LogMessageType.Error);
+        }
+
+        private Dictionary<string, object> BuildRunSection(string source, Dictionary<string, object> testerInfo)
+        {
             Dictionary<string, object> run = new Dictionary<string, object>();
             run["mode"] = source == "tester" ? "tester" : "terminal";
             run["time_local"] = DateTimeOffset.Now.ToString("yyyy-MM-ddTHH:mm:sszzz", CultureInfo.InvariantCulture);
@@ -1329,93 +1483,55 @@ namespace OsEngine.Robots
 
             if (testerInfo != null)
             {
-                object value;
-
-                if (testerInfo.TryGetValue("run", out value))
-                {
-                    run["run"] = value;
-                }
-
-                if (testerInfo.TryGetValue("set", out value))
-                {
-                    run["set"] = value;
-                }
-
-                if (testerInfo.TryGetValue("from", out value))
-                {
-                    run["period_from"] = value;
-                }
-
-                if (testerInfo.TryGetValue("to", out value))
-                {
-                    run["period_to"] = value;
-                }
+                CopyTesterValue(run, testerInfo, "run", "run");
+                CopyTesterValue(run, testerInfo, "set", "set");
+                CopyTesterValue(run, testerInfo, "from", "period_from");
+                CopyTesterValue(run, testerInfo, "to", "period_to");
             }
 
-            doc["run"] = run;
+            return run;
+        }
 
-            List<BotTabSimple> simpleTabs = new List<BotTabSimple>();
-            List<object> tabs = new List<object>();
-            CollectTabs(bot, tabs, simpleTabs);
+        private static void CopyTesterValue(Dictionary<string, object> run, Dictionary<string, object> testerInfo, string fromKey, string toKey)
+        {
+            object value;
 
+            if (testerInfo.TryGetValue(fromKey, out value))
+            {
+                run[toKey] = value;
+            }
+        }
+
+        private Dictionary<string, object> BuildRobotSection(BotPanel bot, string publicName, List<object> tabs)
+        {
             Dictionary<string, object> robot = new Dictionary<string, object>();
-            robot["name"] = bot.NameStrategyUniq;
-            robot["public_name"] = publicName;
-            robot["type"] = bot.GetNameStrategyType();
-            robot["class"] = bot.GetType().FullName;
-            robot["group"] = bot.BotGroup;
-            robot["tabs"] = tabs;
-            robot["parameters"] = BuildParameterRows(bot);
+            robot["name"] = bot != null ? SafeString(() => bot.NameStrategyUniq) : "";
+            robot["public_name"] = publicName ?? "";
+            robot["type"] = bot != null ? SafeString(() => bot.GetNameStrategyType()) : "";
+            robot["class"] = bot != null && bot.GetType() != null ? bot.GetType().FullName ?? "" : "";
+            robot["group"] = bot != null ? SafeString(() => bot.BotGroup) : "";
+            robot["tabs"] = tabs ?? new List<object>();
+            robot["parameters"] = bot != null ? BuildParameterRows(bot) : new List<object>();
 
-            if (_testerServer != null)
+            try
             {
-                Dictionary<string, object> execution = new Dictionary<string, object>();
-                execution["order_execution"] = _testerServer.OrderExecutionType.ToString();
-                execution["slippage_simple"] = _testerServer.SlippageToSimpleOrder;
-                execution["slippage_stop"] = _testerServer.SlippageToStopOrder;
-                robot["tester_execution"] = execution;
-            }
+                TesterServer tester = _testerServer;
 
-            doc["robot"] = robot;
-
-            List<object> securities = new List<object>();
-            HashSet<string> usedSecurities = new HashSet<string>();
-
-            for (int i = 0; i < simpleTabs.Count; i++)
-            {
-                Security security = simpleTabs[i].Security;
-
-                if (security == null || security.Name == null || usedSecurities.Contains(security.Name))
+                if (tester != null)
                 {
-                    continue;
+                    Dictionary<string, object> execution = new Dictionary<string, object>();
+                    execution["order_execution"] = tester.OrderExecutionType.ToString();
+                    execution["slippage_simple"] = tester.SlippageToSimpleOrder;
+                    execution["slippage_stop"] = tester.SlippageToStopOrder;
+                    robot["tester_execution"] = execution;
                 }
-
-                usedSecurities.Add(security.Name);
-                securities.Add(SecurityToObject(security));
             }
-
-            doc["security"] = securities.Count > 0 ? securities[0] : null;
-            doc["securities"] = securities;
-            doc["period"] = BuildCandlePeriod(simpleTabs);
-            doc["counts"] = BuildCounts(all, closed, open);
-            doc["statistics_full"] = BuildFullStatistics(all);
-
-            List<object> positions = new List<object>();
-            Dictionary<BotTabSimple, List<Candle>> candleCache = new Dictionary<BotTabSimple, List<Candle>>();
-
-            for (int i = 0; i < all.Count; i++)
+            catch (Exception error)
             {
-                positions.Add(BuildFullPosition(all[i], simpleTabs, candleCache));
+                robot["tester_execution"] = ErrorSection(error);
             }
 
-            doc["positions"] = positions;
-
-            List<Position> byPointTime = all.OrderBy(p => GetPointTime(p)).ToList();
-            doc["equity"] = BuildEquity(byPointTime, true);
-            doc["drawdown"] = BuildFullDrawdown(byPointTime);
-            doc["by_period"] = BuildByPeriod(closed);
-
-            return doc;
+            return robot;
         }
 
         private static string GetOsEngineVersion()
@@ -1434,9 +1550,9 @@ namespace OsEngine.Robots
         private static Dictionary<string, object> BuildCounts(List<Position> all, List<Position> closed, List<Position> open)
         {
             Dictionary<string, object> counts = new Dictionary<string, object>();
-            counts["positions"] = all.Count;
-            counts["closed"] = closed.Count;
-            counts["open"] = open.Count;
+            counts["positions"] = all != null ? all.Count : 0;
+            counts["closed"] = closed != null ? closed.Count : 0;
+            counts["open"] = open != null ? open.Count : 0;
             return counts;
         }
 
@@ -1444,7 +1560,16 @@ namespace OsEngine.Robots
 
         private static void CollectTabs(BotPanel bot, List<object> tabs, List<BotTabSimple> simpleTabs)
         {
-            List<IIBotTab> botTabs = bot.GetTabs();
+            List<IIBotTab> botTabs = null;
+
+            try
+            {
+                botTabs = bot != null ? bot.GetTabs() : null;
+            }
+            catch
+            {
+                botTabs = null;
+            }
 
             if (botTabs == null)
             {
@@ -1466,10 +1591,21 @@ namespace OsEngine.Robots
             }
 
             Dictionary<string, object> info = new Dictionary<string, object>();
-            info["number"] = tab.TabNum;
-            info["name"] = tab.TabName;
-            info["type"] = tab.TabType.ToString();
-            info["level"] = level;
+
+            try
+            {
+                info["number"] = tab.TabNum;
+                info["name"] = tab.TabName ?? "";
+                info["type"] = tab.TabType.ToString();
+                info["level"] = level;
+            }
+            catch (Exception error)
+            {
+                info["error"] = ErrorText(error);
+                info["level"] = level;
+                tabs.Add(info);
+                return;
+            }
 
             List<IIBotTab> children = new List<IIBotTab>();
 
@@ -1477,9 +1613,9 @@ namespace OsEngine.Robots
             {
                 FillTabInfo(tab, info, simpleTabs, children);
             }
-            catch
+            catch (Exception error)
             {
-                info["error"] = "не прочитано";
+                info["error"] = ErrorText(error);
             }
 
             tabs.Add(info);
@@ -1498,64 +1634,98 @@ namespace OsEngine.Robots
             BotTabIndex index = tab as BotTabIndex;
             BotTabPair pair = tab as BotTabPair;
             BotTabPolygon polygon = tab as BotTabPolygon;
+            BotTabCluster cluster = tab as BotTabCluster;
 
             if (simple != null)
             {
                 simpleTabs.Add(simple);
 
-                Security security = simple.Security;
-                info["security"] = security != null ? security.Name ?? "" : "";
-                info["security_class"] = security != null ? security.NameClass ?? "" : "";
-                info["timeframe_seconds"] = (int)simple.TimeFrame.TotalSeconds;
-                info["portfolio"] = simple.Portfolio != null ? simple.Portfolio.Number ?? "" : "";
-                info["commission_type"] = simple.CommissionType.ToString();
-                info["commission_value"] = simple.CommissionValue;
+                Security security = SafeSecurity(simple);
+                info["security"] = security != null ? SafeString(() => security.Name) : "";
+                info["security_class"] = security != null ? SafeString(() => security.NameClass) : "";
+                info["timeframe_seconds"] = SecondsOf(SafeTabTimeFrame(simple));
+                info["portfolio"] = SafeString(() => simple.Portfolio != null ? simple.Portfolio.Number : "");
+                info["commission_type"] = SafeString(() => simple.CommissionType.ToString());
+                info["commission_value"] = SafeDecimal(() => simple.CommissionValue);
 
-                if (simple.Connector != null)
+                ConnectorCandles connector = SafeConnector(simple);
+
+                if (connector != null)
                 {
-                    info["data_source"] = simple.Connector.ServerFullName ?? "";
-                    info["timeframe"] = simple.Connector.TimeFrame.ToString();
-                    info["candle_type"] = simple.Connector.CandleCreateMethodType ?? "";
+                    info["data_source"] = SafeString(() => connector.ServerFullName);
+                    info["timeframe"] = SafeString(() => connector.TimeFrame.ToString());
+                    info["candle_type"] = SafeString(() => connector.CandleCreateMethodType);
+                }
+            }
+            else if (cluster != null)
+            {
+                // кластерная вкладка: бумага и ТФ есть только у её коннектора
+                ConnectorCandles connector = null;
+
+                try
+                {
+                    connector = cluster.CandleConnector;
+                }
+                catch
+                {
+                    connector = null;
+                }
+
+                if (connector != null)
+                {
+                    info["security"] = SafeString(() => connector.SecurityName);
+                    info["security_class"] = SafeString(() => connector.SecurityClass);
+                    info["data_source"] = SafeString(() => connector.ServerFullName);
+                    info["timeframe"] = SafeString(() => connector.TimeFrame.ToString());
+                    info["candle_type"] = SafeString(() => connector.CandleCreateMethodType);
                 }
             }
             else if (screener != null)
             {
-                info["portfolio"] = screener.PortfolioName ?? "";
-                info["security_class"] = screener.SecuritiesClass ?? "";
-                info["data_source"] = screener.ServerName ?? "";
-                info["commission_type"] = screener.CommissionType.ToString();
-                info["commission_value"] = screener.CommissionValue;
+                info["portfolio"] = SafeString(() => screener.PortfolioName);
+                info["security_class"] = SafeString(() => screener.SecuritiesClass);
+                info["data_source"] = SafeString(() => screener.ServerName);
+                info["commission_type"] = SafeString(() => screener.CommissionType.ToString());
+                info["commission_value"] = SafeDecimal(() => screener.CommissionValue);
+                info["tabs_count"] = SafeInt(() => screener.Tabs != null ? screener.Tabs.Count : 0);
             }
             else if (options != null)
             {
-                info["portfolio"] = options.PortfolioName ?? "";
-                info["data_source"] = options.ServerName ?? "";
+                info["portfolio"] = SafeString(() => options.PortfolioName);
+                info["data_source"] = SafeString(() => options.ServerName);
             }
             else if (index != null)
             {
-                info["formula"] = index.UserFormula ?? "";
+                info["formula"] = SafeString(() => index.UserFormula);
                 List<string> names = new List<string>();
 
-                if (index.SecuritiesInIndex != null)
+                try
                 {
-                    for (int i = 0; i < index.SecuritiesInIndex.Count; i++)
+                    if (index.SecuritiesInIndex != null)
                     {
-                        if (index.SecuritiesInIndex[i] != null)
+                        for (int i = 0; i < index.SecuritiesInIndex.Count; i++)
                         {
-                            names.Add(index.SecuritiesInIndex[i].Name);
+                            if (index.SecuritiesInIndex[i] != null)
+                            {
+                                names.Add(index.SecuritiesInIndex[i].Name ?? "");
+                            }
                         }
                     }
+                }
+                catch
+                {
+                    // список бумаг индекса меняет торговый поток
                 }
 
                 info["securities"] = names;
             }
             else if (pair != null)
             {
-                info["securities"] = pair.SecuritiesActivated;
+                info["securities"] = SafeStrings(() => pair.SecuritiesActivated);
             }
             else if (polygon != null)
             {
-                info["securities"] = polygon.SecuritiesActivated;
+                info["securities"] = SafeStrings(() => polygon.SecuritiesActivated);
             }
 
             if (screener != null && screener.Tabs != null)
@@ -1581,11 +1751,125 @@ namespace OsEngine.Robots
             }
         }
 
-        // Все параметры робота: имя, тип, значение, для чисел — мин/макс/шаг
+        #region Safe reads
+
+        // В тестере свойства вкладок могут бросать NullReferenceException (нет коннектора, ТФ, портфеля).
+        // Чтение каждого такого значения — отдельно, чтобы одна ошибка не теряла всю вкладку.
+
+        private static Security SafeSecurity(BotTabSimple tab)
+        {
+            try
+            {
+                return tab != null ? tab.Security : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static ConnectorCandles SafeConnector(BotTabSimple tab)
+        {
+            try
+            {
+                return tab != null ? tab.Connector : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static TimeSpan SafeTabTimeFrame(BotTabSimple tab)
+        {
+            try
+            {
+                return tab != null ? tab.TimeFrame : TimeSpan.Zero;
+            }
+            catch
+            {
+                return TimeSpan.Zero;
+            }
+        }
+
+        private static int SecondsOf(TimeSpan span)
+        {
+            try
+            {
+                double seconds = span.TotalSeconds;
+                return seconds > 0 && seconds < int.MaxValue ? (int)seconds : 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private static string SafeString(Func<string> read)
+        {
+            try
+            {
+                return read() ?? "";
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        private static decimal SafeDecimal(Func<decimal> read)
+        {
+            try
+            {
+                return read();
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private static int SafeInt(Func<int> read)
+        {
+            try
+            {
+                return read();
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private static List<string> SafeStrings(Func<List<string>> read)
+        {
+            try
+            {
+                return read() ?? new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        #endregion
+
+        // Все параметры робота: имя, тип, значение, для чисел — мин/макс/шаг.
+        // В тестере параметры бывают без значения (кнопки, подписи) и с null вместо значения.
         private static List<object> BuildParameterRows(BotPanel bot)
         {
             List<object> rows = new List<object>();
-            List<IIStrategyParameter> parameters = bot.Parameters;
+            List<IIStrategyParameter> parameters = null;
+
+            try
+            {
+                parameters = bot != null ? bot.Parameters : null;
+            }
+            catch
+            {
+                parameters = null;
+            }
 
             if (parameters == null)
             {
@@ -1601,10 +1885,21 @@ namespace OsEngine.Robots
                     continue;
                 }
 
-                Dictionary<string, object> row = new Dictionary<string, object>();
-                row["name"] = parameter.Name;
-                row["type"] = parameter.Type.ToString();
-                row["tab"] = parameter.TabName ?? "";
+                rows.Add(BuildParameterRow(parameter));
+            }
+
+            return rows;
+        }
+
+        private static Dictionary<string, object> BuildParameterRow(IIStrategyParameter parameter)
+        {
+            Dictionary<string, object> row = new Dictionary<string, object>();
+
+            try
+            {
+                row["name"] = SafeString(() => parameter.Name);
+                row["type"] = SafeString(() => parameter.Type.ToString());
+                row["tab"] = SafeString(() => parameter.TabName);
 
                 StrategyParameterInt asInt = parameter as StrategyParameterInt;
                 StrategyParameterDecimal asDecimal = parameter as StrategyParameterDecimal;
@@ -1613,6 +1908,7 @@ namespace OsEngine.Robots
                 StrategyParameterString asString = parameter as StrategyParameterString;
                 StrategyParameterTimeOfDay asTime = parameter as StrategyParameterTimeOfDay;
                 StrategyParameterCheckBox asCheckBox = parameter as StrategyParameterCheckBox;
+                StrategyParameterLabel asLabel = parameter as StrategyParameterLabel;
 
                 if (asInt != null)
                 {
@@ -1641,42 +1937,112 @@ namespace OsEngine.Robots
                 }
                 else if (asString != null)
                 {
-                    row["value"] = asString.ValueString;
+                    row["value"] = asString.ValueString ?? "";
                 }
-                else if (asTime != null)
+                else if (!ReferenceEquals(asTime, null)) // у StrategyParameterTimeOfDay перегружен !=, который падает на null
                 {
-                    row["value"] = asTime.Value.Hour.ToString("00", CultureInfo.InvariantCulture) + ":"
-                        + asTime.Value.Minute.ToString("00", CultureInfo.InvariantCulture) + ":"
-                        + asTime.Value.Second.ToString("00", CultureInfo.InvariantCulture);
+                    TimeOfDay value = asTime.Value;
+
+                    if (value is null)
+                    {
+                        row["value"] = "";
+                    }
+                    else
+                    {
+                        row["value"] = value.Hour.ToString("00", CultureInfo.InvariantCulture) + ":"
+                            + value.Minute.ToString("00", CultureInfo.InvariantCulture) + ":"
+                            + value.Second.ToString("00", CultureInfo.InvariantCulture);
+                    }
                 }
                 else if (asCheckBox != null)
                 {
                     row["value"] = asCheckBox.CheckState.ToString();
                 }
-
-                rows.Add(row);
+                else if (asLabel != null)
+                {
+                    row["value"] = asLabel.Value ?? "";
+                }
+            }
+            catch (Exception error)
+            {
+                row["error"] = ErrorText(error);
             }
 
-            return rows;
+            return row;
         }
 
         #endregion
 
         #region Securities, period, statistics
 
+        private static List<object> BuildSecuritiesList(List<BotTabSimple> simpleTabs)
+        {
+            List<object> securities = new List<object>();
+            HashSet<string> usedSecurities = new HashSet<string>();
+
+            if (simpleTabs == null)
+            {
+                return securities;
+            }
+
+            for (int i = 0; i < simpleTabs.Count; i++)
+            {
+                try
+                {
+                    Security security = SafeSecurity(simpleTabs[i]);
+
+                    if (security == null)
+                    {
+                        continue;
+                    }
+
+                    string name = security.Name ?? "";
+
+                    if (usedSecurities.Contains(name))
+                    {
+                        continue;
+                    }
+
+                    usedSecurities.Add(name);
+                    securities.Add(SecurityToObject(security));
+                }
+                catch (Exception error)
+                {
+                    securities.Add(ErrorSection(error));
+                }
+            }
+
+            return securities;
+        }
+
         private static Dictionary<string, object> SecurityToObject(Security security)
         {
             Dictionary<string, object> item = new Dictionary<string, object>();
-            item["name"] = security.Name ?? "";
-            item["class"] = security.NameClass ?? "";
-            item["type"] = security.SecurityType.ToString();
-            item["price_step"] = security.PriceStep;
-            item["price_step_cost"] = security.PriceStepCost;
-            item["lot"] = security.Lot;
-            item["decimals"] = security.Decimals;
-            item["decimals_volume"] = security.DecimalsVolume;
-            item["volume_step"] = security.VolumeStep;
-            item["min_trade_amount"] = security.MinTradeAmount;
+
+            if (security == null)
+            {
+                item["error"] = "NullReferenceException: бумага не задана (Security is null)";
+                return item;
+            }
+
+            try
+            {
+                item["name"] = security.Name ?? "";
+                item["class"] = security.NameClass ?? "";
+                item["type"] = security.SecurityType.ToString();
+                item["price_step"] = security.PriceStep;
+                item["price_step_cost"] = security.PriceStepCost;
+                item["lot"] = security.Lot;
+                item["decimals"] = security.Decimals;
+                item["decimals_volume"] = security.DecimalsVolume;
+                item["volume_step"] = security.VolumeStep;
+                item["min_trade_amount"] = security.MinTradeAmount;
+            }
+            catch (Exception error)
+            {
+                item["error"] = ErrorText(error);
+            }
+
             return item;
         }
 
@@ -1685,66 +2051,101 @@ namespace OsEngine.Robots
             DateTime from = DateTime.MinValue;
             DateTime to = DateTime.MinValue;
             int count = 0;
+            List<string> errors = new List<string>();
 
-            for (int i = 0; i < tabs.Count; i++)
+            for (int i = 0; tabs != null && i < tabs.Count; i++)
             {
-                List<Candle> candles = tabs[i].CandlesAll;
-
-                if (candles == null || candles.Count == 0)
+                try
                 {
-                    continue;
+                    BotTabSimple tab = tabs[i];
+
+                    if (tab == null)
+                    {
+                        continue;
+                    }
+
+                    List<Candle> candles = tab.CandlesAll;
+
+                    if (candles == null || candles.Count == 0)
+                    {
+                        continue; // вкладка без свечей — обычное дело в тестере
+                    }
+
+                    Candle first = candles[0];
+                    Candle last = candles[candles.Count - 1];
+
+                    if (first != null && first.TimeStart != DateTime.MinValue
+                        && (from == DateTime.MinValue || first.TimeStart < from))
+                    {
+                        from = first.TimeStart;
+                    }
+
+                    if (last != null && last.TimeStart != DateTime.MinValue && last.TimeStart > to)
+                    {
+                        to = last.TimeStart;
+                    }
+
+                    count += candles.Count;
                 }
-
-                Candle first = candles[0];
-                Candle last = candles[candles.Count - 1];
-
-                if (first != null && first.TimeStart != DateTime.MinValue
-                    && (from == DateTime.MinValue || first.TimeStart < from))
+                catch (Exception error)
                 {
-                    from = first.TimeStart;
+                    errors.Add(ErrorText(error));
                 }
-
-                if (last != null && last.TimeStart != DateTime.MinValue && last.TimeStart > to)
-                {
-                    to = last.TimeStart;
-                }
-
-                count += candles.Count;
             }
 
             Dictionary<string, object> period = new Dictionary<string, object>();
             period["from"] = FormatTime(from);
             period["to"] = FormatTime(to);
             period["candles"] = count;
+
+            if (errors.Count > 0)
+            {
+                period["errors"] = errors;
+            }
+
             return period;
         }
 
         // Все строки стандартной статистики OsEngine — те же значения, что в окне статистики журнала
         private static Dictionary<string, object> BuildFullStatistics(List<Position> all)
         {
+            List<Position> positions = all ?? new List<Position>();
             Dictionary<string, object> result = new Dictionary<string, object>();
-            result["all"] = BuildStatisticRows(all, true);
-            result["long"] = BuildStatisticRows(all.FindAll(p => p.Direction == Side.Buy), false);
-            result["short"] = BuildStatisticRows(all.FindAll(p => p.Direction == Side.Sell), false);
+            result["all"] = BuildStatisticRowsSafe(positions, true);
+            result["long"] = BuildStatisticRowsSafe(positions.FindAll(p => p != null && p.Direction == Side.Buy), false);
+            result["short"] = BuildStatisticRowsSafe(positions.FindAll(p => p != null && p.Direction == Side.Sell), false);
             return result;
+        }
+
+        private static List<object> BuildStatisticRowsSafe(List<Position> positions, bool withMaxDrawDown)
+        {
+            try
+            {
+                return BuildStatisticRows(positions, withMaxDrawDown);
+            }
+            catch (Exception error)
+            {
+                return new List<object> { ErrorSection(error) };
+            }
         }
 
         private static List<object> BuildStatisticRows(List<Position> positions, bool withMaxDrawDown)
         {
             List<object> rows = new List<object>();
-            List<string> values = PositionStatisticGenerator.GetStatisticNew(positions, withMaxDrawDown);
+            List<Position> deals = (positions ?? new List<Position>()).FindAll(p => p != null);
+            List<string> values = PositionStatisticGenerator.GetStatisticNew(deals, withMaxDrawDown);
 
             if (values == null)
             {
                 return rows;
             }
 
-            string[] names = GetStatisticRowNames();
+            string[] names = GetStatisticRowNames() ?? new string[0];
 
             for (int i = 0; i < values.Count; i++)
             {
                 Dictionary<string, object> row = new Dictionary<string, object>();
-                row["name"] = i < names.Length ? names[i] : "";
+                row["name"] = i < names.Length ? names[i] ?? "" : "";
                 row["value"] = values[i] ?? "";
                 rows.Add(row);
             }
@@ -1776,13 +2177,70 @@ namespace OsEngine.Robots
 
         #region Positions
 
+        private List<object> BuildFullPositions(List<Position> all, List<BotTabSimple> tabs)
+        {
+            List<object> positions = new List<object>();
+            Dictionary<BotTabSimple, List<Candle>> candleCache = new Dictionary<BotTabSimple, List<Candle>>();
+            List<Position> source = all ?? new List<Position>();
+            bool errorLogged = false;
+
+            for (int i = 0; i < source.Count; i++)
+            {
+                Position pos = source[i];
+
+                if (pos == null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    positions.Add(BuildFullPosition(pos, tabs, candleCache));
+                }
+                catch (Exception error)
+                {
+                    // ошибка одной позиции: у неё поле error, остальные позиции пишутся
+                    positions.Add(BuildErrorPosition(pos, error));
+
+                    if (!errorLogged)
+                    {
+                        errorLogged = true;
+                        SendNewLogMessage("RobotStatistics: full.json, позиция " + SafeInt(() => pos.Number) + ": " + error, LogMessageType.Error);
+                    }
+                }
+            }
+
+            return positions;
+        }
+
+        private static Dictionary<string, object> BuildErrorPosition(Position pos, Exception error)
+        {
+            Dictionary<string, object> deal = new Dictionary<string, object>();
+            deal["error"] = ErrorText(error);
+
+            try
+            {
+                if (pos != null)
+                {
+                    deal["number"] = pos.Number;
+                    deal["security"] = pos.SecurityName ?? "";
+                }
+            }
+            catch
+            {
+                // даже номер позиции не читается — остаётся только error
+            }
+
+            return deal;
+        }
+
         private Dictionary<string, object> BuildFullPosition(Position pos, List<BotTabSimple> tabs, Dictionary<BotTabSimple, List<Candle>> candleCache)
         {
             Dictionary<string, object> deal = new Dictionary<string, object>();
             deal["number"] = pos.Number;
-            deal["security"] = pos.SecurityName ?? "";
+            deal["security"] = SafeString(() => pos.SecurityName);
             deal["direction"] = pos.Direction == Side.Buy ? "Long" : "Short";
-            deal["state"] = pos.State.ToString();
+            deal["state"] = SafeString(() => pos.State.ToString());
             deal["signal_type_open"] = pos.SignalTypeOpen ?? "";
             deal["signal_type_close"] = pos.SignalTypeClose ?? "";
             deal["signal_type_stop"] = pos.SignalTypeStop ?? "";
@@ -1804,8 +2262,8 @@ namespace OsEngine.Robots
             deal["profit_percent"] = Math.Round(pos.ProfitOperationPercent, 4);
             deal["profit_money"] = Math.Round(pos.ProfitPortfolioAbs, 4);
             deal["profit_portfolio_percent"] = Math.Round(pos.ProfitPortfolioPercent, 4);
-            deal["commission"] = Math.Round(pos.CommissionTotal(), 4);
-            deal["commission_type"] = pos.CommissionType.ToString();
+            deal["commission"] = Math.Round(SafeDecimal(() => pos.CommissionTotal()), 4);
+            deal["commission_type"] = SafeString(() => pos.CommissionType.ToString());
             deal["commission_value"] = pos.CommissionValue;
 
             Dictionary<string, object> stop = new Dictionary<string, object>();
@@ -1825,12 +2283,30 @@ namespace OsEngine.Robots
             deal["take"] = take;
 
             List<object> orders = new List<object>();
-            AddOrderRows(orders, pos.OpenOrders);
-            AddOrderRows(orders, pos.CloseOrders);
+
+            try
+            {
+                AddOrderRows(orders, pos.OpenOrders);
+                AddOrderRows(orders, pos.CloseOrders);
+            }
+            catch (Exception error)
+            {
+                orders.Add(ErrorSection(error));
+            }
+
             deal["orders"] = orders;
 
             List<object> trades = new List<object>();
-            List<MyTrade> myTrades = pos.MyTrades;
+            List<MyTrade> myTrades = null;
+
+            try
+            {
+                myTrades = pos.MyTrades;
+            }
+            catch (Exception error)
+            {
+                trades.Add(ErrorSection(error));
+            }
 
             if (myTrades != null)
             {
@@ -1838,20 +2314,28 @@ namespace OsEngine.Robots
                 {
                     if (myTrades[i] != null)
                     {
-                        trades.Add(MyTradeToObject(myTrades[i]));
+                        try
+                        {
+                            trades.Add(MyTradeToObject(myTrades[i]));
+                        }
+                        catch (Exception error)
+                        {
+                            trades.Add(ErrorSection(error));
+                        }
                     }
                 }
             }
 
             deal["trades"] = trades;
 
-            BotTabSimple tab = FindTabForPosition(tabs, pos.SecurityName);
-            int timeFrameSeconds = tab != null ? (int)tab.TimeFrame.TotalSeconds : 0;
+            BotTabSimple tab = FindTabForPosition(tabs, SafeString(() => pos.SecurityName));
+            TimeSpan timeFrame = SafeTabTimeFrame(tab);
+            int timeFrameSeconds = SecondsOf(timeFrame);
             deal["timeframe_seconds"] = timeFrameSeconds;
 
             int barsHeld = 0;
 
-            if (tab != null && tab.TimeFrame > TimeSpan.Zero && pos.TimeOpen != DateTime.MinValue)
+            if (tab != null && timeFrame > TimeSpan.Zero && pos.TimeOpen != DateTime.MinValue)
             {
                 DateTime end = pos.TimeClose;
 
@@ -1867,20 +2351,28 @@ namespace OsEngine.Robots
 
                 if (end != DateTime.MinValue && end > pos.TimeOpen)
                 {
-                    barsHeld = (int)Math.Round((end - pos.TimeOpen).TotalSeconds / tab.TimeFrame.TotalSeconds);
+                    barsHeld = (int)Math.Round((end - pos.TimeOpen).TotalSeconds / timeFrame.TotalSeconds);
                 }
             }
 
             deal["bars_held"] = barsHeld;
 
-            AddExcursion(deal, pos, tab, candleCache);
+            try
+            {
+                AddExcursion(deal, pos, tab, candleCache);
+            }
+            catch (Exception error)
+            {
+                deal["excursion_error"] = ErrorText(error);
+            }
+
             return deal;
         }
 
         // Снимок свечей один раз на файл: список вкладки меняется торговым потоком
         private static List<Candle> GetTabCandles(BotTabSimple tab, Dictionary<BotTabSimple, List<Candle>> candleCache)
         {
-            if (tab == null)
+            if (tab == null || candleCache == null)
             {
                 return null;
             }
@@ -1889,7 +2381,17 @@ namespace OsEngine.Robots
 
             if (!candleCache.TryGetValue(tab, out candles))
             {
-                List<Candle> source = tab.CandlesAll;
+                List<Candle> source = null;
+
+                try
+                {
+                    source = tab.CandlesAll;
+                }
+                catch
+                {
+                    source = null; // нет коннектора или серии свечей — в тестере это нормально
+                }
+
                 candles = source != null ? new List<Candle>(source) : null;
                 candleCache[tab] = candles;
             }
@@ -1899,7 +2401,7 @@ namespace OsEngine.Robots
 
         private static void AddOrderRows(List<object> rows, List<Order> orders)
         {
-            if (orders == null)
+            if (rows == null || orders == null)
             {
                 return;
             }
@@ -1914,38 +2416,60 @@ namespace OsEngine.Robots
                 }
 
                 Dictionary<string, object> row = new Dictionary<string, object>();
-                row["number_user"] = order.NumberUser;
-                row["number_market"] = order.NumberMarket ?? "";
-                row["number_position"] = order.NumberPosition;
-                row["side"] = order.Side == Side.Buy ? "Buy" : "Sell";
-                row["type"] = order.TypeOrder.ToString();
-                row["state"] = order.State.ToString();
-                row["price"] = order.Price;
-                row["stop_price"] = order.StopPrice;
-                row["volume"] = order.Volume;
-                row["volume_execute"] = order.VolumeExecute;
-                row["is_stop_or_profit"] = order.IsStopOrProfit;
-                row["comment"] = order.Comment ?? "";
-                row["time_create"] = FormatTime(order.TimeCreate);
-                row["time_done"] = FormatTime(order.TimeDone);
-                row["time_cancel"] = FormatTime(order.TimeCancel);
 
-                List<object> trades = new List<object>();
-
-                if (order.MyTrades != null)
+                try
                 {
-                    for (int j = 0; j < order.MyTrades.Count; j++)
+                    FillOrderRow(row, order);
+                }
+                catch (Exception error)
+                {
+                    row["error"] = ErrorText(error);
+                }
+
+                rows.Add(row);
+            }
+        }
+
+        private static void FillOrderRow(Dictionary<string, object> row, Order order)
+        {
+            row["number_user"] = order.NumberUser;
+            row["number_market"] = order.NumberMarket ?? "";
+            row["number_position"] = order.NumberPosition;
+            row["side"] = order.Side == Side.Buy ? "Buy" : "Sell";
+            row["type"] = order.TypeOrder.ToString();
+            row["state"] = order.State.ToString();
+            row["price"] = order.Price;
+            row["stop_price"] = order.StopPrice;
+            row["volume"] = order.Volume;
+            row["volume_execute"] = order.VolumeExecute;
+            row["is_stop_or_profit"] = order.IsStopOrProfit;
+            row["comment"] = order.Comment ?? "";
+            row["time_create"] = FormatTime(order.TimeCreate);
+            row["time_done"] = FormatTime(order.TimeDone);
+            row["time_cancel"] = FormatTime(order.TimeCancel);
+
+            List<object> trades = new List<object>();
+            List<MyTrade> myTrades = order.MyTrades;
+
+            if (myTrades != null)
+            {
+                for (int j = 0; j < myTrades.Count; j++)
+                {
+                    if (myTrades[j] != null)
                     {
-                        if (order.MyTrades[j] != null)
+                        try
                         {
-                            trades.Add(MyTradeToObject(order.MyTrades[j]));
+                            trades.Add(MyTradeToObject(myTrades[j]));
+                        }
+                        catch (Exception error)
+                        {
+                            trades.Add(ErrorSection(error));
                         }
                     }
                 }
-
-                row["trades"] = trades;
-                rows.Add(row);
             }
+
+            row["trades"] = trades;
         }
 
         private static Dictionary<string, object> MyTradeToObject(MyTrade trade)
@@ -1962,13 +2486,25 @@ namespace OsEngine.Robots
 
         private static BotTabSimple FindTabForPosition(List<BotTabSimple> tabs, string security)
         {
+            if (tabs == null || tabs.Count == 0)
+            {
+                return null;
+            }
+
             for (int i = 0; i < tabs.Count; i++)
             {
-                Security tabSecurity = tabs[i].Security;
-
-                if (tabSecurity != null && tabSecurity.Name == security)
+                try
                 {
-                    return tabs[i];
+                    Security tabSecurity = SafeSecurity(tabs[i]);
+
+                    if (tabSecurity != null && tabSecurity.Name == security)
+                    {
+                        return tabs[i];
+                    }
+                }
+                catch
+                {
+                    // бумага вкладки не читается — пробуем следующую
                 }
             }
 
@@ -1979,7 +2515,7 @@ namespace OsEngine.Robots
         // MFE/MAE по свечам вкладки от входа до выхода: максимальный ход в плюс и в минус
         private static void AddExcursion(Dictionary<string, object> deal, Position pos, BotTabSimple tab, Dictionary<BotTabSimple, List<Candle>> candleCache)
         {
-            if (tab == null || pos.EntryPrice <= 0 || pos.TimeOpen == DateTime.MinValue)
+            if (deal == null || pos == null || tab == null || pos.EntryPrice <= 0 || pos.TimeOpen == DateTime.MinValue)
             {
                 return;
             }
@@ -2056,6 +2592,11 @@ namespace OsEngine.Robots
 
         private static int FindCandleIndex(List<Candle> candles, DateTime time)
         {
+            if (candles == null || candles.Count == 0)
+            {
+                return 0;
+            }
+
             int left = 0;
             int right = candles.Count - 1;
             int result = candles.Count;
@@ -2092,8 +2633,9 @@ namespace OsEngine.Robots
         private static Dictionary<string, object> BuildByPeriod(List<Position> closed)
         {
             Dictionary<string, object> result = new Dictionary<string, object>();
-            result["years"] = BuildPeriodRows(closed, false);
-            result["months"] = BuildPeriodRows(closed, true);
+            List<Position> positions = closed ?? new List<Position>();
+            result["years"] = BuildPeriodRows(positions, false);
+            result["months"] = BuildPeriodRows(positions, true);
             return result;
         }
 
@@ -2101,12 +2643,20 @@ namespace OsEngine.Robots
         {
             List<object> rows = new List<object>();
             List<Position> deals = new List<Position>();
+            List<Position> source = closed ?? new List<Position>();
 
-            for (int i = 0; i < closed.Count; i++)
+            for (int i = 0; i < source.Count; i++)
             {
-                if (closed[i] != null && closed[i].TimeClose != DateTime.MinValue)
+                try
                 {
-                    deals.Add(closed[i]);
+                    if (source[i] != null && source[i].TimeClose != DateTime.MinValue)
+                    {
+                        deals.Add(source[i]);
+                    }
+                }
+                catch
+                {
+                    // позиция без времени закрытия не попадает в разбивку
                 }
             }
 
@@ -2118,24 +2668,43 @@ namespace OsEngine.Robots
 
             foreach (var group in groups)
             {
-                Position[] array = group.ToArray();
-                decimal percent = 0;
-                decimal money = 0;
-
-                for (int i = 0; i < array.Length; i++)
+                try
                 {
-                    decimal mult = array[i].MultToJournal / 100;
-                    percent += array[i].ProfitPortfolioPercent * mult;
-                    money += array[i].ProfitPortfolioAbs * mult;
-                }
+                    Position[] array = group.ToArray();
+                    decimal percent = 0;
+                    decimal money = 0;
 
-                Dictionary<string, object> row = new Dictionary<string, object>();
-                row["period"] = group.Key;
-                row["deals"] = array.Length;
-                row["profit_percent"] = Math.Round(percent, 4);
-                row["profit_money"] = Math.Round(money, 4);
-                row["profit_factor"] = Math.Round(PositionStatisticGenerator.GetProfitFactor(array), 4);
-                rows.Add(row);
+                    for (int i = 0; i < array.Length; i++)
+                    {
+                        decimal mult = array[i].MultToJournal / 100;
+                        percent += array[i].ProfitPortfolioPercent * mult;
+                        money += array[i].ProfitPortfolioAbs * mult;
+                    }
+
+                    Dictionary<string, object> row = new Dictionary<string, object>();
+                    row["period"] = group.Key;
+                    row["deals"] = array.Length;
+                    row["profit_percent"] = Math.Round(percent, 4);
+                    row["profit_money"] = Math.Round(money, 4);
+
+                    try
+                    {
+                        row["profit_factor"] = Math.Round(PositionStatisticGenerator.GetProfitFactor(array), 4);
+                    }
+                    catch (Exception error)
+                    {
+                        row["error"] = ErrorText(error);
+                    }
+
+                    rows.Add(row);
+                }
+                catch (Exception error)
+                {
+                    Dictionary<string, object> row = new Dictionary<string, object>();
+                    row["period"] = group.Key;
+                    row["error"] = ErrorText(error);
+                    rows.Add(row);
+                }
             }
 
             return rows;
@@ -2146,7 +2715,7 @@ namespace OsEngine.Robots
             List<object> curve = BuildDrawdown(deals, true);
             decimal maxPercent = 0;
 
-            for (int i = 0; i < curve.Count; i++)
+            for (int i = 0; curve != null && i < curve.Count; i++)
             {
                 Dictionary<string, object> point = curve[i] as Dictionary<string, object>;
 
@@ -2155,7 +2724,16 @@ namespace OsEngine.Robots
                     continue;
                 }
 
-                decimal percent = (decimal)point["percent"];
+                decimal percent;
+
+                try
+                {
+                    percent = Convert.ToDecimal(point["percent"], CultureInfo.InvariantCulture);
+                }
+                catch
+                {
+                    continue;
+                }
 
                 if (-percent > maxPercent)
                 {
@@ -2165,8 +2743,26 @@ namespace OsEngine.Robots
 
             Dictionary<string, object> result = new Dictionary<string, object>();
             result["max_percent"] = Math.Round(maxPercent, 4);
-            result["curve"] = curve;
+            result["curve"] = curve ?? new List<object>();
             return result;
+        }
+
+        // full.json пишется всегда: даже при неожиданной ошибке остаётся документ с полем error
+        private byte[] BuildFullJsonFile(string slug, string publicName, BotPanel bot, string generatedAt, string source,
+            Dictionary<string, object> testerInfo, List<Position> all, List<Position> closed, List<Position> open)
+        {
+            try
+            {
+                return ToJson(BuildFullDocument(slug, publicName, bot, generatedAt, source, testerInfo, all, closed, open));
+            }
+            catch (Exception error)
+            {
+                SendNewLogMessage("RobotStatistics: full.json " + slug + ": " + error, LogMessageType.Error);
+
+                Dictionary<string, object> doc = CreateFullDocumentShell(slug, publicName, generatedAt, source);
+                doc["error"] = ErrorText(error);
+                return ToJson(doc);
+            }
         }
 
         // Полный отчёт в дополнительную папку: <папка>\<дата-время>_<робот>\full.json
