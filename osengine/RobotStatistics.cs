@@ -9,6 +9,7 @@
 
 using OsEngine.Entity;
 using OsEngine.Journal.Internal;
+using OsEngine.Language;
 using OsEngine.Logging;
 using OsEngine.Market;
 using OsEngine.Market.Servers;
@@ -16,6 +17,7 @@ using OsEngine.Market.Servers.Tester;
 using OsEngine.OsTrader;
 using OsEngine.OsTrader.Panels;
 using OsEngine.OsTrader.Panels.Attributes;
+using OsEngine.OsTrader.Panels.Tab;
 using OsEngine.Themes;
 using System;
 using System.Collections.Generic;
@@ -62,11 +64,13 @@ namespace OsEngine.Robots
             _formatDealsCsv = CreateParameter("deals.csv — все сделки таблицей", true, "Форматы");
             _formatStatsCsv = CreateParameter("stats.csv — статистика таблицей", true, "Форматы");
             _formatDealsRss = CreateParameter("deals.rss — лента сделок", true, "Форматы");
+            _formatFullJson = CreateParameter("full.json — полный отчёт для анализа (приватность не действует)", false, "Форматы");
             _csvSeparator = CreateParameter("Разделитель CSV", ";", new[] { ";", "," }, "Форматы");
             _lastDealsCount = CreateParameter("Последних сделок в stats.json и RSS", 50, 0, 1000, 10, "Форматы");
 
             _writeFiles = CreateParameter("Записывать файлы в папку", true, "Куда");
             _folder = CreateParameter("Папка (пусто = Engine\\RobotStatistics)", "", "Куда");
+            _fullFolder = CreateParameter("Папка полного отчёта (пусто = нет)", "", "Куда");
             _httpPort = CreateParameter("HTTP порт (0 = выключен)", 0, 0, 65535, 1, "Куда");
             _httpAllAddresses = CreateParameter("HTTP: доступ с других компьютеров", false, "Куда");
             _webhookUrl = CreateParameter("Отправлять на адрес (webhook), пусто = нет", "", "Куда");
@@ -84,7 +88,7 @@ namespace OsEngine.Robots
 
             DeleteEvent += RobotStatistics_DeleteEvent;
 
-            Description = "Не торгует. Публикует статистику выбранных роботов (терминал — постоянно, тестер — после каждого прогона): stats.json, deals.json, deals.csv, stats.csv, deals.rss — в папку, по HTTP и/или на адрес сайта.";
+            Description = "Не торгует. Публикует статистику выбранных роботов (терминал — постоянно, тестер — после каждого прогона): stats.json, deals.json, deals.csv, stats.csv, deals.rss (и full.json — полный отчёт для анализа) — в папку, по HTTP и/или на адрес сайта.";
 
             LoadChoice();
 
@@ -127,11 +131,13 @@ namespace OsEngine.Robots
         private StrategyParameterBool _formatDealsCsv;
         private StrategyParameterBool _formatStatsCsv;
         private StrategyParameterBool _formatDealsRss;
+        private StrategyParameterBool _formatFullJson;
         private StrategyParameterString _csvSeparator;
         private StrategyParameterInt _lastDealsCount;
 
         private StrategyParameterBool _writeFiles;
         private StrategyParameterString _folder;
+        private StrategyParameterString _fullFolder;
         private StrategyParameterInt _httpPort;
         private StrategyParameterBool _httpAllAddresses;
         private StrategyParameterString _webhookUrl;
@@ -573,6 +579,8 @@ namespace OsEngine.Robots
                 }
             }
 
+            WriteFullReportCopy(runId, runFiles);
+
             lock (_cacheLocker)
             {
                 Dictionary<string, byte[]> cache = new Dictionary<string, byte[]>(_cache);
@@ -725,6 +733,11 @@ namespace OsEngine.Robots
                     {
                         files[slug + "/deals.rss"] = BuildRss(slug, publicName, closed);
                         links["deals_rss"] = slug + "/deals.rss";
+                    }
+
+                    if (_formatFullJson.ValueBool)
+                    {
+                        files[slug + "/full.json"] = ToJson(BuildFullDocument(slug, publicName, bot, generatedAt, source, testerInfo, all, closed, open));
                     }
 
                     Dictionary<string, object> indexItem = new Dictionary<string, object>();
@@ -1291,6 +1304,916 @@ namespace OsEngine.Robots
 
             return time;
         }
+
+        #endregion
+
+        #region Full report
+
+        // Полный отчёт для анализа (full.json, schema rs-full/1).
+        // На него НЕ действует приватность: суммы, объёмы и открытые позиции пишутся всегда.
+
+        private Dictionary<string, object> BuildFullDocument(string slug, string publicName, BotPanel bot, string generatedAt,
+            string source, Dictionary<string, object> testerInfo, List<Position> all, List<Position> closed, List<Position> open)
+        {
+            Dictionary<string, object> doc = new Dictionary<string, object>();
+            doc["schema"] = "rs-full/1";
+            doc["slug"] = slug;
+            doc["name"] = publicName;
+            doc["generated_at"] = generatedAt;
+
+            Dictionary<string, object> run = new Dictionary<string, object>();
+            run["mode"] = source == "tester" ? "tester" : "terminal";
+            run["time_local"] = DateTimeOffset.Now.ToString("yyyy-MM-ddTHH:mm:sszzz", CultureInfo.InvariantCulture);
+            run["time_utc"] = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
+            run["osengine_version"] = GetOsEngineVersion();
+
+            if (testerInfo != null)
+            {
+                object value;
+
+                if (testerInfo.TryGetValue("run", out value))
+                {
+                    run["run"] = value;
+                }
+
+                if (testerInfo.TryGetValue("set", out value))
+                {
+                    run["set"] = value;
+                }
+
+                if (testerInfo.TryGetValue("from", out value))
+                {
+                    run["period_from"] = value;
+                }
+
+                if (testerInfo.TryGetValue("to", out value))
+                {
+                    run["period_to"] = value;
+                }
+            }
+
+            doc["run"] = run;
+
+            List<BotTabSimple> simpleTabs = new List<BotTabSimple>();
+            List<object> tabs = new List<object>();
+            CollectTabs(bot, tabs, simpleTabs);
+
+            Dictionary<string, object> robot = new Dictionary<string, object>();
+            robot["name"] = bot.NameStrategyUniq;
+            robot["public_name"] = publicName;
+            robot["type"] = bot.GetNameStrategyType();
+            robot["class"] = bot.GetType().FullName;
+            robot["group"] = bot.BotGroup;
+            robot["tabs"] = tabs;
+            robot["parameters"] = BuildParameterRows(bot);
+
+            if (_testerServer != null)
+            {
+                Dictionary<string, object> execution = new Dictionary<string, object>();
+                execution["order_execution"] = _testerServer.OrderExecutionType.ToString();
+                execution["slippage_simple"] = _testerServer.SlippageToSimpleOrder;
+                execution["slippage_stop"] = _testerServer.SlippageToStopOrder;
+                robot["tester_execution"] = execution;
+            }
+
+            doc["robot"] = robot;
+
+            List<object> securities = new List<object>();
+            HashSet<string> usedSecurities = new HashSet<string>();
+
+            for (int i = 0; i < simpleTabs.Count; i++)
+            {
+                Security security = simpleTabs[i].Security;
+
+                if (security == null || security.Name == null || usedSecurities.Contains(security.Name))
+                {
+                    continue;
+                }
+
+                usedSecurities.Add(security.Name);
+                securities.Add(SecurityToObject(security));
+            }
+
+            doc["security"] = securities.Count > 0 ? securities[0] : null;
+            doc["securities"] = securities;
+            doc["period"] = BuildCandlePeriod(simpleTabs);
+            doc["counts"] = BuildCounts(all, closed, open);
+            doc["statistics_full"] = BuildFullStatistics(all);
+
+            List<object> positions = new List<object>();
+            Dictionary<BotTabSimple, List<Candle>> candleCache = new Dictionary<BotTabSimple, List<Candle>>();
+
+            for (int i = 0; i < all.Count; i++)
+            {
+                positions.Add(BuildFullPosition(all[i], simpleTabs, candleCache));
+            }
+
+            doc["positions"] = positions;
+
+            List<Position> byPointTime = all.OrderBy(p => GetPointTime(p)).ToList();
+            doc["equity"] = BuildEquity(byPointTime, true);
+            doc["drawdown"] = BuildFullDrawdown(byPointTime);
+            doc["by_period"] = BuildByPeriod(closed);
+
+            return doc;
+        }
+
+        private static string GetOsEngineVersion()
+        {
+            try
+            {
+                Version version = typeof(BotPanel).Assembly.GetName().Version;
+                return version != null ? version.ToString() : "";
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        private static Dictionary<string, object> BuildCounts(List<Position> all, List<Position> closed, List<Position> open)
+        {
+            Dictionary<string, object> counts = new Dictionary<string, object>();
+            counts["positions"] = all.Count;
+            counts["closed"] = closed.Count;
+            counts["open"] = open.Count;
+            return counts;
+        }
+
+        #region Tabs and parameters
+
+        private static void CollectTabs(BotPanel bot, List<object> tabs, List<BotTabSimple> simpleTabs)
+        {
+            List<IIBotTab> botTabs = bot.GetTabs();
+
+            if (botTabs == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < botTabs.Count; i++)
+            {
+                CollectTab(botTabs[i], 0, tabs, simpleTabs);
+            }
+        }
+
+        // Вкладки всех типов; из простых вкладок дополнительно берём бумагу, ТФ, портфель, комиссию и источник данных
+        private static void CollectTab(IIBotTab tab, int level, List<object> tabs, List<BotTabSimple> simpleTabs)
+        {
+            if (tab == null)
+            {
+                return;
+            }
+
+            Dictionary<string, object> info = new Dictionary<string, object>();
+            info["number"] = tab.TabNum;
+            info["name"] = tab.TabName;
+            info["type"] = tab.TabType.ToString();
+            info["level"] = level;
+
+            List<IIBotTab> children = new List<IIBotTab>();
+
+            try
+            {
+                FillTabInfo(tab, info, simpleTabs, children);
+            }
+            catch
+            {
+                info["error"] = "не прочитано";
+            }
+
+            tabs.Add(info);
+
+            for (int i = 0; i < children.Count; i++)
+            {
+                CollectTab(children[i], level + 1, tabs, simpleTabs);
+            }
+        }
+
+        private static void FillTabInfo(IIBotTab tab, Dictionary<string, object> info, List<BotTabSimple> simpleTabs, List<IIBotTab> children)
+        {
+            BotTabSimple simple = tab as BotTabSimple;
+            BotTabScreener screener = tab as BotTabScreener;
+            BotTabOptions options = tab as BotTabOptions;
+            BotTabIndex index = tab as BotTabIndex;
+            BotTabPair pair = tab as BotTabPair;
+            BotTabPolygon polygon = tab as BotTabPolygon;
+
+            if (simple != null)
+            {
+                simpleTabs.Add(simple);
+
+                Security security = simple.Security;
+                info["security"] = security != null ? security.Name ?? "" : "";
+                info["security_class"] = security != null ? security.NameClass ?? "" : "";
+                info["timeframe_seconds"] = (int)simple.TimeFrame.TotalSeconds;
+                info["portfolio"] = simple.Portfolio != null ? simple.Portfolio.Number ?? "" : "";
+                info["commission_type"] = simple.CommissionType.ToString();
+                info["commission_value"] = simple.CommissionValue;
+
+                if (simple.Connector != null)
+                {
+                    info["data_source"] = simple.Connector.ServerFullName ?? "";
+                    info["timeframe"] = simple.Connector.TimeFrame.ToString();
+                    info["candle_type"] = simple.Connector.CandleCreateMethodType ?? "";
+                }
+            }
+            else if (screener != null)
+            {
+                info["portfolio"] = screener.PortfolioName ?? "";
+                info["security_class"] = screener.SecuritiesClass ?? "";
+                info["data_source"] = screener.ServerName ?? "";
+                info["commission_type"] = screener.CommissionType.ToString();
+                info["commission_value"] = screener.CommissionValue;
+            }
+            else if (options != null)
+            {
+                info["portfolio"] = options.PortfolioName ?? "";
+                info["data_source"] = options.ServerName ?? "";
+            }
+            else if (index != null)
+            {
+                info["formula"] = index.UserFormula ?? "";
+                List<string> names = new List<string>();
+
+                if (index.SecuritiesInIndex != null)
+                {
+                    for (int i = 0; i < index.SecuritiesInIndex.Count; i++)
+                    {
+                        if (index.SecuritiesInIndex[i] != null)
+                        {
+                            names.Add(index.SecuritiesInIndex[i].Name);
+                        }
+                    }
+                }
+
+                info["securities"] = names;
+            }
+            else if (pair != null)
+            {
+                info["securities"] = pair.SecuritiesActivated;
+            }
+            else if (polygon != null)
+            {
+                info["securities"] = polygon.SecuritiesActivated;
+            }
+
+            if (screener != null && screener.Tabs != null)
+            {
+                for (int i = 0; i < screener.Tabs.Count; i++)
+                {
+                    if (screener.Tabs[i] != null)
+                    {
+                        children.Add(screener.Tabs[i]);
+                    }
+                }
+            }
+
+            if (options != null && options.Tabs != null)
+            {
+                for (int i = 0; i < options.Tabs.Count; i++)
+                {
+                    if (options.Tabs[i] != null)
+                    {
+                        children.Add(options.Tabs[i]);
+                    }
+                }
+            }
+        }
+
+        // Все параметры робота: имя, тип, значение, для чисел — мин/макс/шаг
+        private static List<object> BuildParameterRows(BotPanel bot)
+        {
+            List<object> rows = new List<object>();
+            List<IIStrategyParameter> parameters = bot.Parameters;
+
+            if (parameters == null)
+            {
+                return rows;
+            }
+
+            for (int i = 0; i < parameters.Count; i++)
+            {
+                IIStrategyParameter parameter = parameters[i];
+
+                if (parameter == null)
+                {
+                    continue;
+                }
+
+                Dictionary<string, object> row = new Dictionary<string, object>();
+                row["name"] = parameter.Name;
+                row["type"] = parameter.Type.ToString();
+                row["tab"] = parameter.TabName ?? "";
+
+                StrategyParameterInt asInt = parameter as StrategyParameterInt;
+                StrategyParameterDecimal asDecimal = parameter as StrategyParameterDecimal;
+                StrategyParameterDecimalCheckBox asDecimalCheckBox = parameter as StrategyParameterDecimalCheckBox;
+                StrategyParameterBool asBool = parameter as StrategyParameterBool;
+                StrategyParameterString asString = parameter as StrategyParameterString;
+                StrategyParameterTimeOfDay asTime = parameter as StrategyParameterTimeOfDay;
+                StrategyParameterCheckBox asCheckBox = parameter as StrategyParameterCheckBox;
+
+                if (asInt != null)
+                {
+                    row["value"] = asInt.ValueInt;
+                    row["min"] = asInt.ValueIntStart;
+                    row["max"] = asInt.ValueIntStop;
+                    row["step"] = asInt.ValueIntStep;
+                }
+                else if (asDecimal != null)
+                {
+                    row["value"] = asDecimal.ValueDecimal;
+                    row["min"] = asDecimal.ValueDecimalStart;
+                    row["max"] = asDecimal.ValueDecimalStop;
+                    row["step"] = asDecimal.ValueDecimalStep;
+                }
+                else if (asDecimalCheckBox != null)
+                {
+                    row["value"] = asDecimalCheckBox.ValueDecimal;
+                    row["min"] = asDecimalCheckBox.ValueDecimalStart;
+                    row["max"] = asDecimalCheckBox.ValueDecimalStop;
+                    row["step"] = asDecimalCheckBox.ValueDecimalStep;
+                }
+                else if (asBool != null)
+                {
+                    row["value"] = asBool.ValueBool;
+                }
+                else if (asString != null)
+                {
+                    row["value"] = asString.ValueString;
+                }
+                else if (asTime != null)
+                {
+                    row["value"] = asTime.Value.Hour.ToString("00", CultureInfo.InvariantCulture) + ":"
+                        + asTime.Value.Minute.ToString("00", CultureInfo.InvariantCulture) + ":"
+                        + asTime.Value.Second.ToString("00", CultureInfo.InvariantCulture);
+                }
+                else if (asCheckBox != null)
+                {
+                    row["value"] = asCheckBox.CheckState.ToString();
+                }
+
+                rows.Add(row);
+            }
+
+            return rows;
+        }
+
+        #endregion
+
+        #region Securities, period, statistics
+
+        private static Dictionary<string, object> SecurityToObject(Security security)
+        {
+            Dictionary<string, object> item = new Dictionary<string, object>();
+            item["name"] = security.Name ?? "";
+            item["class"] = security.NameClass ?? "";
+            item["type"] = security.SecurityType.ToString();
+            item["price_step"] = security.PriceStep;
+            item["price_step_cost"] = security.PriceStepCost;
+            item["lot"] = security.Lot;
+            item["decimals"] = security.Decimals;
+            item["decimals_volume"] = security.DecimalsVolume;
+            item["volume_step"] = security.VolumeStep;
+            item["min_trade_amount"] = security.MinTradeAmount;
+            return item;
+        }
+
+        private static Dictionary<string, object> BuildCandlePeriod(List<BotTabSimple> tabs)
+        {
+            DateTime from = DateTime.MinValue;
+            DateTime to = DateTime.MinValue;
+            int count = 0;
+
+            for (int i = 0; i < tabs.Count; i++)
+            {
+                List<Candle> candles = tabs[i].CandlesAll;
+
+                if (candles == null || candles.Count == 0)
+                {
+                    continue;
+                }
+
+                Candle first = candles[0];
+                Candle last = candles[candles.Count - 1];
+
+                if (first != null && first.TimeStart != DateTime.MinValue
+                    && (from == DateTime.MinValue || first.TimeStart < from))
+                {
+                    from = first.TimeStart;
+                }
+
+                if (last != null && last.TimeStart != DateTime.MinValue && last.TimeStart > to)
+                {
+                    to = last.TimeStart;
+                }
+
+                count += candles.Count;
+            }
+
+            Dictionary<string, object> period = new Dictionary<string, object>();
+            period["from"] = FormatTime(from);
+            period["to"] = FormatTime(to);
+            period["candles"] = count;
+            return period;
+        }
+
+        // Все строки стандартной статистики OsEngine — те же значения, что в окне статистики журнала
+        private static Dictionary<string, object> BuildFullStatistics(List<Position> all)
+        {
+            Dictionary<string, object> result = new Dictionary<string, object>();
+            result["all"] = BuildStatisticRows(all, true);
+            result["long"] = BuildStatisticRows(all.FindAll(p => p.Direction == Side.Buy), false);
+            result["short"] = BuildStatisticRows(all.FindAll(p => p.Direction == Side.Sell), false);
+            return result;
+        }
+
+        private static List<object> BuildStatisticRows(List<Position> positions, bool withMaxDrawDown)
+        {
+            List<object> rows = new List<object>();
+            List<string> values = PositionStatisticGenerator.GetStatisticNew(positions, withMaxDrawDown);
+
+            if (values == null)
+            {
+                return rows;
+            }
+
+            string[] names = GetStatisticRowNames();
+
+            for (int i = 0; i < values.Count; i++)
+            {
+                Dictionary<string, object> row = new Dictionary<string, object>();
+                row["name"] = i < names.Length ? names[i] : "";
+                row["value"] = values[i] ?? "";
+                rows.Add(row);
+            }
+
+            return rows;
+        }
+
+        // Подписи строк — как в окне статистики журнала (JournalUi2)
+        private static string[] GetStatisticRowNames()
+        {
+            return new[]
+            {
+                OsLocalization.Journal.GridRow1, OsLocalization.Journal.GridRow2, OsLocalization.Journal.GridRow3,
+                OsLocalization.Journal.GridRow17, OsLocalization.Journal.GridRow18,
+                OsLocalization.Journal.GridRow4, OsLocalization.Journal.GridRow5, "",
+                OsLocalization.Journal.GridRow6, OsLocalization.Journal.GridRow7, OsLocalization.Journal.GridRow8,
+                OsLocalization.Journal.GridRow9, "",
+                OsLocalization.Journal.GridRow10, OsLocalization.Journal.GridRow11,
+                OsLocalization.Journal.GridRow6, OsLocalization.Journal.GridRow7, OsLocalization.Journal.GridRow8,
+                OsLocalization.Journal.GridRow9, OsLocalization.Journal.GridRow12, "",
+                OsLocalization.Journal.GridRow13, OsLocalization.Journal.GridRow14,
+                OsLocalization.Journal.GridRow6, OsLocalization.Journal.GridRow7, OsLocalization.Journal.GridRow8,
+                OsLocalization.Journal.GridRow9, OsLocalization.Journal.GridRow12, "",
+                OsLocalization.Journal.GridRow15, OsLocalization.Journal.GridRow16, OsLocalization.Journal.GridRow19
+            };
+        }
+
+        #endregion
+
+        #region Positions
+
+        private Dictionary<string, object> BuildFullPosition(Position pos, List<BotTabSimple> tabs, Dictionary<BotTabSimple, List<Candle>> candleCache)
+        {
+            Dictionary<string, object> deal = new Dictionary<string, object>();
+            deal["number"] = pos.Number;
+            deal["security"] = pos.SecurityName ?? "";
+            deal["direction"] = pos.Direction == Side.Buy ? "Long" : "Short";
+            deal["state"] = pos.State.ToString();
+            deal["signal_type_open"] = pos.SignalTypeOpen ?? "";
+            deal["signal_type_close"] = pos.SignalTypeClose ?? "";
+            deal["signal_type_stop"] = pos.SignalTypeStop ?? "";
+            deal["signal_type_profit"] = pos.SignalTypeProfit ?? "";
+            deal["comment"] = pos.Comment ?? "";
+            deal["time_create"] = FormatTime(pos.TimeCreate);
+            deal["time_open"] = FormatTime(pos.TimeOpen);
+            deal["time_close"] = FormatTime(pos.TimeClose);
+            deal["entry_price"] = pos.EntryPrice;
+            deal["close_price"] = pos.ClosePrice;
+            deal["max_volume"] = pos.MaxVolume;
+            deal["open_volume"] = pos.OpenVolume;
+            deal["closed_volume"] = pos.MaxVolume - pos.OpenVolume;
+            deal["wait_volume"] = pos.WaitVolume;
+            deal["lots"] = pos.Lots;
+            deal["price_step"] = pos.PriceStep;
+            deal["price_step_cost"] = pos.PriceStepCost;
+            deal["profit_points"] = Math.Round(pos.ProfitOperationAbs, 6);
+            deal["profit_percent"] = Math.Round(pos.ProfitOperationPercent, 4);
+            deal["profit_money"] = Math.Round(pos.ProfitPortfolioAbs, 4);
+            deal["profit_portfolio_percent"] = Math.Round(pos.ProfitPortfolioPercent, 4);
+            deal["commission"] = Math.Round(pos.CommissionTotal(), 4);
+            deal["commission_type"] = pos.CommissionType.ToString();
+            deal["commission_value"] = pos.CommissionValue;
+
+            Dictionary<string, object> stop = new Dictionary<string, object>();
+            stop["active"] = pos.StopOrderIsActive;
+            stop["price"] = pos.StopOrderPrice;
+            stop["order_price"] = pos.StopOrderRedLine;
+            stop["is_market"] = pos.StopIsMarket;
+            stop["is_iceberg"] = pos.StopIsIceberg;
+            deal["stop"] = stop;
+
+            Dictionary<string, object> take = new Dictionary<string, object>();
+            take["active"] = pos.ProfitOrderIsActive;
+            take["price"] = pos.ProfitOrderPrice;
+            take["order_price"] = pos.ProfitOrderRedLine;
+            take["is_market"] = pos.ProfitIsMarket;
+            take["is_iceberg"] = pos.ProfitIsIceberg;
+            deal["take"] = take;
+
+            List<object> orders = new List<object>();
+            AddOrderRows(orders, pos.OpenOrders);
+            AddOrderRows(orders, pos.CloseOrders);
+            deal["orders"] = orders;
+
+            List<object> trades = new List<object>();
+            List<MyTrade> myTrades = pos.MyTrades;
+
+            if (myTrades != null)
+            {
+                for (int i = 0; i < myTrades.Count; i++)
+                {
+                    if (myTrades[i] != null)
+                    {
+                        trades.Add(MyTradeToObject(myTrades[i]));
+                    }
+                }
+            }
+
+            deal["trades"] = trades;
+
+            BotTabSimple tab = FindTabForPosition(tabs, pos.SecurityName);
+            int timeFrameSeconds = tab != null ? (int)tab.TimeFrame.TotalSeconds : 0;
+            deal["timeframe_seconds"] = timeFrameSeconds;
+
+            int barsHeld = 0;
+
+            if (tab != null && tab.TimeFrame > TimeSpan.Zero && pos.TimeOpen != DateTime.MinValue)
+            {
+                DateTime end = pos.TimeClose;
+
+                if (end == DateTime.MinValue)
+                {
+                    List<Candle> candles = GetTabCandles(tab, candleCache);
+
+                    if (candles != null && candles.Count > 0 && candles[candles.Count - 1] != null)
+                    {
+                        end = candles[candles.Count - 1].TimeStart;
+                    }
+                }
+
+                if (end != DateTime.MinValue && end > pos.TimeOpen)
+                {
+                    barsHeld = (int)Math.Round((end - pos.TimeOpen).TotalSeconds / tab.TimeFrame.TotalSeconds);
+                }
+            }
+
+            deal["bars_held"] = barsHeld;
+
+            AddExcursion(deal, pos, tab, candleCache);
+            return deal;
+        }
+
+        // Снимок свечей один раз на файл: список вкладки меняется торговым потоком
+        private static List<Candle> GetTabCandles(BotTabSimple tab, Dictionary<BotTabSimple, List<Candle>> candleCache)
+        {
+            if (tab == null)
+            {
+                return null;
+            }
+
+            List<Candle> candles;
+
+            if (!candleCache.TryGetValue(tab, out candles))
+            {
+                List<Candle> source = tab.CandlesAll;
+                candles = source != null ? new List<Candle>(source) : null;
+                candleCache[tab] = candles;
+            }
+
+            return candles;
+        }
+
+        private static void AddOrderRows(List<object> rows, List<Order> orders)
+        {
+            if (orders == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < orders.Count; i++)
+            {
+                Order order = orders[i];
+
+                if (order == null)
+                {
+                    continue;
+                }
+
+                Dictionary<string, object> row = new Dictionary<string, object>();
+                row["number_user"] = order.NumberUser;
+                row["number_market"] = order.NumberMarket ?? "";
+                row["number_position"] = order.NumberPosition;
+                row["side"] = order.Side == Side.Buy ? "Buy" : "Sell";
+                row["type"] = order.TypeOrder.ToString();
+                row["state"] = order.State.ToString();
+                row["price"] = order.Price;
+                row["stop_price"] = order.StopPrice;
+                row["volume"] = order.Volume;
+                row["volume_execute"] = order.VolumeExecute;
+                row["is_stop_or_profit"] = order.IsStopOrProfit;
+                row["comment"] = order.Comment ?? "";
+                row["time_create"] = FormatTime(order.TimeCreate);
+                row["time_done"] = FormatTime(order.TimeDone);
+                row["time_cancel"] = FormatTime(order.TimeCancel);
+
+                List<object> trades = new List<object>();
+
+                if (order.MyTrades != null)
+                {
+                    for (int j = 0; j < order.MyTrades.Count; j++)
+                    {
+                        if (order.MyTrades[j] != null)
+                        {
+                            trades.Add(MyTradeToObject(order.MyTrades[j]));
+                        }
+                    }
+                }
+
+                row["trades"] = trades;
+                rows.Add(row);
+            }
+        }
+
+        private static Dictionary<string, object> MyTradeToObject(MyTrade trade)
+        {
+            Dictionary<string, object> row = new Dictionary<string, object>();
+            row["time"] = FormatTime(trade.Time);
+            row["price"] = trade.Price;
+            row["volume"] = trade.Volume;
+            row["side"] = trade.Side == Side.Buy ? "Buy" : "Sell";
+            row["number_trade"] = trade.NumberTrade ?? "";
+            row["number_order"] = trade.NumberOrderParent ?? "";
+            return row;
+        }
+
+        private static BotTabSimple FindTabForPosition(List<BotTabSimple> tabs, string security)
+        {
+            for (int i = 0; i < tabs.Count; i++)
+            {
+                Security tabSecurity = tabs[i].Security;
+
+                if (tabSecurity != null && tabSecurity.Name == security)
+                {
+                    return tabs[i];
+                }
+            }
+
+            // одна вкладка — бумага та же по смыслу; несколько — чужую бумагу для MFE/MAE не берём
+            return tabs.Count == 1 ? tabs[0] : null;
+        }
+
+        // MFE/MAE по свечам вкладки от входа до выхода: максимальный ход в плюс и в минус
+        private static void AddExcursion(Dictionary<string, object> deal, Position pos, BotTabSimple tab, Dictionary<BotTabSimple, List<Candle>> candleCache)
+        {
+            if (tab == null || pos.EntryPrice <= 0 || pos.TimeOpen == DateTime.MinValue)
+            {
+                return;
+            }
+
+            List<Candle> candles = GetTabCandles(tab, candleCache);
+
+            if (candles == null || candles.Count == 0)
+            {
+                return;
+            }
+
+            DateTime end = pos.State == PositionStateType.Done && pos.TimeClose != DateTime.MinValue
+                ? pos.TimeClose
+                : DateTime.MaxValue;
+
+            int index = FindCandleIndex(candles, pos.TimeOpen);
+            decimal high = 0;
+            decimal low = 0;
+            int bars = 0;
+
+            for (int i = index; i < candles.Count; i++)
+            {
+                Candle candle = candles[i];
+
+                if (candle == null || candle.TimeStart < pos.TimeOpen)
+                {
+                    continue;
+                }
+
+                if (candle.TimeStart > end)
+                {
+                    break;
+                }
+
+                if (bars == 0)
+                {
+                    high = candle.High;
+                    low = candle.Low;
+                }
+                else
+                {
+                    if (candle.High > high)
+                    {
+                        high = candle.High;
+                    }
+
+                    if (candle.Low < low)
+                    {
+                        low = candle.Low;
+                    }
+                }
+
+                bars++;
+            }
+
+            if (bars == 0 || high <= 0 || low <= 0)
+            {
+                return;
+            }
+
+            decimal moveUp = high - pos.EntryPrice;
+            decimal moveDown = pos.EntryPrice - low;
+            decimal favorable = pos.Direction == Side.Buy ? moveUp : moveDown;
+            decimal adverse = pos.Direction == Side.Buy ? moveDown : moveUp;
+
+            deal["mfe_points"] = Math.Round(favorable, 6);
+            deal["mae_points"] = Math.Round(adverse, 6);
+            deal["mfe_percent"] = Math.Round(favorable / pos.EntryPrice * 100, 4);
+            deal["mae_percent"] = Math.Round(adverse / pos.EntryPrice * 100, 4);
+            deal["mfe_price"] = pos.Direction == Side.Buy ? high : low;
+            deal["mae_price"] = pos.Direction == Side.Buy ? low : high;
+            deal["bars_in_trade"] = bars;
+        }
+
+        private static int FindCandleIndex(List<Candle> candles, DateTime time)
+        {
+            int left = 0;
+            int right = candles.Count - 1;
+            int result = candles.Count;
+
+            while (left <= right)
+            {
+                int middle = (left + right) / 2;
+                Candle candle = candles[middle];
+
+                if (candle == null)
+                {
+                    left = middle + 1;
+                    continue;
+                }
+
+                if (candle.TimeStart >= time)
+                {
+                    result = middle;
+                    right = middle - 1;
+                }
+                else
+                {
+                    left = middle + 1;
+                }
+            }
+
+            return result;
+        }
+
+        #endregion
+
+        #region By period and drawdown
+
+        private static Dictionary<string, object> BuildByPeriod(List<Position> closed)
+        {
+            Dictionary<string, object> result = new Dictionary<string, object>();
+            result["years"] = BuildPeriodRows(closed, false);
+            result["months"] = BuildPeriodRows(closed, true);
+            return result;
+        }
+
+        private static List<object> BuildPeriodRows(List<Position> closed, bool byMonth)
+        {
+            List<object> rows = new List<object>();
+            List<Position> deals = new List<Position>();
+
+            for (int i = 0; i < closed.Count; i++)
+            {
+                if (closed[i] != null && closed[i].TimeClose != DateTime.MinValue)
+                {
+                    deals.Add(closed[i]);
+                }
+            }
+
+            var groups = deals
+                .GroupBy(p => byMonth
+                    ? p.TimeClose.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+                    : p.TimeClose.Year.ToString(CultureInfo.InvariantCulture))
+                .OrderBy(g => g.Key, StringComparer.Ordinal);
+
+            foreach (var group in groups)
+            {
+                Position[] array = group.ToArray();
+                decimal percent = 0;
+                decimal money = 0;
+
+                for (int i = 0; i < array.Length; i++)
+                {
+                    decimal mult = array[i].MultToJournal / 100;
+                    percent += array[i].ProfitPortfolioPercent * mult;
+                    money += array[i].ProfitPortfolioAbs * mult;
+                }
+
+                Dictionary<string, object> row = new Dictionary<string, object>();
+                row["period"] = group.Key;
+                row["deals"] = array.Length;
+                row["profit_percent"] = Math.Round(percent, 4);
+                row["profit_money"] = Math.Round(money, 4);
+                row["profit_factor"] = Math.Round(PositionStatisticGenerator.GetProfitFactor(array), 4);
+                rows.Add(row);
+            }
+
+            return rows;
+        }
+
+        private Dictionary<string, object> BuildFullDrawdown(List<Position> deals)
+        {
+            List<object> curve = BuildDrawdown(deals, true);
+            decimal maxPercent = 0;
+
+            for (int i = 0; i < curve.Count; i++)
+            {
+                Dictionary<string, object> point = curve[i] as Dictionary<string, object>;
+
+                if (point == null || !point.ContainsKey("percent"))
+                {
+                    continue;
+                }
+
+                decimal percent = (decimal)point["percent"];
+
+                if (-percent > maxPercent)
+                {
+                    maxPercent = -percent;
+                }
+            }
+
+            Dictionary<string, object> result = new Dictionary<string, object>();
+            result["max_percent"] = Math.Round(maxPercent, 4);
+            result["curve"] = curve;
+            return result;
+        }
+
+        // Полный отчёт в дополнительную папку: <папка>\<дата-время>_<робот>\full.json
+        private void WriteFullReportCopy(string runId, Dictionary<string, byte[]> runFiles)
+        {
+            if (!_formatFullJson.ValueBool)
+            {
+                return;
+            }
+
+            string folder = (_fullFolder.ValueString ?? "").Trim();
+
+            if (folder == "")
+            {
+                return;
+            }
+
+            try
+            {
+                folder = Path.GetFullPath(folder);
+            }
+            catch (Exception error)
+            {
+                SendNewLogMessage("RobotStatistics: папка полного отчёта: " + error.Message, LogMessageType.Error);
+                return;
+            }
+
+            foreach (KeyValuePair<string, byte[]> file in runFiles)
+            {
+                const string suffix = "/full.json";
+
+                if (!file.Key.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                string slug = file.Key.Substring(0, file.Key.Length - suffix.Length);
+                string target = Path.Combine(folder, runId + "_" + slug);
+
+                WriteFiles(target, new Dictionary<string, byte[]>
+                {
+                    { "full.json", file.Value }
+                });
+            }
+        }
+
+        #endregion
 
         #endregion
 
